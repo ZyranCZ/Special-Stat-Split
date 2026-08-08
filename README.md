@@ -17,6 +17,9 @@ For example:
 * **Flamethrower** → Special
 
 <img width="1026" height="800" alt="image" src="https://github.com/user-attachments/assets/6821cf1b-4cc7-4bce-bb43-4412a73ddc1c" />
+<img width="1026" height="800" alt="image" src="https://github.com/user-attachments/assets/ebcba933-6e07-465a-bf6c-4b2152d6fffa" />
+**BEST PAIRED WITH [Move Category (PHYS/SPEC) Preview](https://github.com/ZyranCZ/Move-Category-Preview)
+**
 
 This mod adds both systems while keeping the rest of Pokémon Red's battle mechanics as intact as possible.
 
