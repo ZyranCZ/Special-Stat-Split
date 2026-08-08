@@ -6,6 +6,7 @@ In Gen I, Pokémon only have one `SPECIAL` stat. Starting with Gen II, that stat
 
 * **SP. ATK**
 * **SP. DEF**
+<img width="1026" height="800" alt="image" src="https://github.com/user-attachments/assets/6821cf1b-4cc7-4bce-bb43-4412a73ddc1c" />
 
 Generation I also determines whether a damaging move is Physical or Special entirely by its **type**. Starting with Generation IV, every move has its own individual damage category instead.
 
@@ -16,12 +17,12 @@ For example:
 * **Hyper Beam** → Special
 * **Flamethrower** → Special
 
-<img width="1026" height="800" alt="image" src="https://github.com/user-attachments/assets/6821cf1b-4cc7-4bce-bb43-4412a73ddc1c" />
-<img width="1026" height="800" alt="image" src="https://github.com/user-attachments/assets/ebcba933-6e07-465a-bf6c-4b2152d6fffa" /><br>
-* [Move Category (PHYS/SPEC) Preview](https://github.com/ZyranCZ/Move-Category-Preview)
-
 
 This mod adds both systems while keeping the rest of Pokémon Red's battle mechanics as intact as possible.
+
+<img width="1026" height="800" alt="image" src="https://github.com/user-attachments/assets/ebcba933-6e07-465a-bf6c-4b2152d6fffa" />
+
+<br>Best paired with:<br>[Move Category (PHYS/SPEC) Preview](https://github.com/ZyranCZ/Move-Category-Preview)
 
 **Check out my other mods:**
 
