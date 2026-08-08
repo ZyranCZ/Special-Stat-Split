@@ -9,6 +9,12 @@ In Gen I, Pokémon only have one `SPECIAL` stat. Starting with Gen II, that stat
 
 <img width="1026" height="800" alt="image" src="https://github.com/user-attachments/assets/6821cf1b-4cc7-4bce-bb43-4412a73ddc1c" />
 
+**Check out my other mods:**<br>
+[Autofire A/B + Directional Keys Mod](https://github.com/ZyranCZ/Move-Category-Preview)<br>
+[Steel and/or Fairy and/or Typing Charts](https://github.com/ZyranCZ/Steel-and-or-Fairy-and-or-Typing-Charts)<br>
+[Move Category (PHYS/SPEC) Preview](https://github.com/ZyranCZ/Move-Category-Preview)<br>
+[Special Stat Split
+](https://github.com/ZyranCZ/Special-Stat-Split/)<br>
 
 This mod does the same thing while keeping the rest of Pokémon Red's battle system intact.
 
