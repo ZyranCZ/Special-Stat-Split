@@ -8,6 +8,17 @@ In Gen I, Pokémon only have one `SPECIAL` stat. Starting with Gen II, that stat
 * **SP. DEF**
 <img width="1026" height="800" alt="image" src="https://github.com/user-attachments/assets/6821cf1b-4cc7-4bce-bb43-4412a73ddc1c" />
 
+**Check out my other mods:**<br>
+* [Autofire A/B + Directional Keys Mod](https://github.com/ZyranCZ/autofire)<br>
+* [Steel and/or Fairy and/or Typing Charts](https://github.com/ZyranCZ/Steel-and-or-Fairy-and-or-Typing-Charts)<br>
+* [Move Category (PHYS/SPEC) Preview](https://github.com/ZyranCZ/Move-Category-Preview)<br>
+* [Special Stat Split
+](https://github.com/ZyranCZ/Special-Stat-Split/)<br>
+* [Enemy HP Visible](https://github.com/ZyranCZ/Enemy-HP)
+* [Can Always Escape](https://github.com/ZyranCZ/Can-Always-Escape)
+* [Trainers Let You Choose Lead Pokemon](https://github.com/ZyranCZ/Trainers-Let-You-Choose-Lead-Pokemon)
+* [Evolve in Battle](https://github.com/ZyranCZ/Evolve-in-Battle)
+
 Generation I also determines whether a damaging move is Physical or Special entirely by its **type**. Starting with Generation IV, every move has its own individual damage category instead.
 
 For example:
