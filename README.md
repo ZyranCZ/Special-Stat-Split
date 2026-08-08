@@ -15,6 +15,8 @@ In Gen I, Pokémon only have one `SPECIAL` stat. Starting with Gen II, that stat
 * [Move Category (PHYS/SPEC) Preview](https://github.com/ZyranCZ/Move-Category-Preview)<br>
 * [Special Stat Split
 ](https://github.com/ZyranCZ/Special-Stat-Split/)<br>
+* [Enemy HP Visible](https://github.com/ZyranCZ/Enemy-HP)
+* [Can Always Escape](https://github.com/ZyranCZ/Can-Always-Escape)
 
 This mod does the same thing while keeping the rest of Pokémon Red's battle system intact.
 
