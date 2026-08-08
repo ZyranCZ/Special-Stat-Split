@@ -1,4 +1,4 @@
-# Special Stat Split
+# Special Stat Split (+ MOVES Split)
 
 A mod for Gen1Recomp that brings both the Generation II **Special Attack / Special Defense stat split** and the Generation IV+ **Physical / Special move split** into Pokémon Red.
 
