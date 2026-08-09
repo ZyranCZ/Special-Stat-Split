@@ -19,6 +19,9 @@ In Gen I, Pokémon only have one `SPECIAL` stat. Starting with Gen II, that stat
 * [Trainers Let You Choose Lead Pokemon](https://github.com/ZyranCZ/Trainers-Let-You-Choose-Lead-Pokemon)
 * [Evolve in Battle](https://github.com/ZyranCZ/Evolve-in-Battle)
 * [HELP Story Guide](https://github.com/ZyranCZ/HELP-Story-Guide/)
+* [Professor Oak's Pokémon DV/Stat Appraisal](https://github.com/ZyranCZ/Professor-Oak-DV-STAT-Evaluation)
+
+
 
 
 Generation I also determines whether a damaging move is Physical or Special entirely by its **type**. Starting with Generation IV, every move has its own individual damage category instead.
