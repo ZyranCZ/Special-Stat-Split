@@ -1,0 +1,26 @@
+{
+  "id": "special_stat_split",
+  "name": "Special Stat Split",
+  "version": "2.5.1",
+  "api": 2,
+  "entry": "main.lua",
+  "profile": "content",
+  "category": "GAMEPLAY",
+  "game_version": ">=0.1.75 <0.1.76",
+  "priority": 150,
+  "affects_link": true,
+  "permissions": [
+    "engine_internals"
+  ],
+  "dependencies": [],
+  "optional_dependencies": [
+    "pokedex_plus",
+    "CRYSTAL_251",
+    "gen1_modern_ui",
+    "move_category"
+  ],
+  "conflicts": [],
+  "description": "Generation II Special Attack / Special Defense, optional Generation IV+ per-move Physical/Special split, integrated Move Category readout, versioned inter-mod API, link-safe gameplay-option fingerprinting, capability-checked Modern UI compatibility, and optional CRYSTAL 251 interoperability.",
+  "experimental": false,
+  "github": "ZyranCZ/Special-Stat-Split"
+}
