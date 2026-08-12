@@ -1,4 +1,4 @@
--- SPECIAL STAT SPLIT v2.6.4
+-- SPECIAL STAT SPLIT v2.6.5
 -- Release build for Gen1Recomp commit 60cf07fb0a1ffce0ec6d5d0d2f78a921a6d0b7da.
 --
 -- Scope: Generation II Special stat split + Generation IV+ per-move damage categories + integrated move-category battle readout.
@@ -1868,8 +1868,19 @@ local function runGoldBackend(mod)
       if type(typeEnd) ~= "number" or type(ppX) ~= "number" or ppX <= typeEnd then
         return nil
       end
+
+      -- Fixed footer-local column.  One "cell" is the average advance of the
+      -- literal TYPE label itself, so the point scales naturally with the
+      -- replacement UI font/transform.  Column 24 is intentionally independent
+      -- of both the type VALUE and the PP text/position.
+      local typeLabelWidth = callFontWidth(typeCall, "TYPE")
+      local cell = type(typeLabelWidth) == "number" and typeLabelWidth / 4 or nil
+      local fixedX = type(cell) == "number" and cell > 0
+          and (typeCall.startX + cell * 24) or nil
+      if type(fixedX) ~= "number" then return nil end
+
       return { y = (typeStyle and typeStyle.y) or rowY,
-        typeEnd = typeEnd, ppX = ppX, style = typeStyle }
+        typeEnd = typeEnd, ppX = ppX, fixedX = fixedX, style = typeStyle }
     end
 
     local function drawObservedCategory(G, originalPrint, geom, label)
@@ -1877,17 +1888,15 @@ local function runGoldBackend(mod)
       local style = geom.style
       local space = callFontWidth(style, " ")
       local labelWidth = callFontWidth(style, label)
-      local left = geom.typeEnd + math.max(2, space)
-      local right = geom.ppX - math.max(2, space)
-      if right - left < labelWidth then return false end
-      -- Match the replacement footer's own sub-pixel phase instead of forcing
-      -- the category onto a different pixel grid.  This keeps the same mild
-      -- antialiasing/linear-filtered look as TYPE/WATER/NORMAL while centering
-      -- the label in the measured TYPE..PP gap.
-      local targetX = left + (right - left - labelWidth) / 2
-      local phaseX = type(style.startX) == "number"
-        and (style.startX - math.floor(style.startX)) or 0
-      local x = math.floor(targetX - phaseX + 0.5) + phaseX
+      -- Fixed footer-local column.  The category start is anchored to a stable
+      -- point derived from the literal TYPE label, not from PP and not from the
+      -- varying move-type value.  This keeps the first letter of PHYSICAL /
+      -- SPECIAL / STATUS on the same X across the whole footer row.
+      local x = tonumber(geom.fixedX)
+      if type(x) ~= "number" then return false end
+      local minX = geom.typeEnd + math.max(2, space)
+      if x < minX then x = minX end
+      if geom.ppX and x + labelWidth >= geom.ppX then return false end
       local y = geom.y
 
       local pushed = false
@@ -2052,7 +2061,7 @@ local function runGoldBackend(mod)
       and mod.find("move_category") ~= nil or false
     local gen3Ui = gen3UiHandleForDiagnostics()
     return {
-      modVersion = tostring(mod.version or "2.6.4"),
+      modVersion = tostring(mod.version or "2.6.5"),
       apiVersion = 1,
       generation = "gold",
       requested = getGameplayConfig(),
@@ -2112,7 +2121,7 @@ local function runGoldBackend(mod)
 
   mod.exports.specialStatSplit = {
     apiVersion = 1,
-    modVersion = tostring(mod.version or "2.6.4"),
+    modVersion = tostring(mod.version or "2.6.5"),
     specialSplitActive = mod.exports.specialSplitActive,
     moveCategorySplitActive = mod.exports.moveCategorySplitActive,
     moveCategoryReadoutEnabled = mod.exports.moveCategoryReadoutEnabled,
@@ -2125,7 +2134,7 @@ local function runGoldBackend(mod)
   }
   mod.exports.specialStatSplitV2 = {
     apiVersion = 2,
-    modVersion = tostring(mod.version or "2.6.4"),
+    modVersion = tostring(mod.version or "2.6.5"),
     generation = function() return "gold" end,
     getRequestedGameplayConfig = getGameplayConfig,
     getEffectiveGameplayConfig = getEffectiveGameplayConfig,
@@ -2443,6 +2452,24 @@ return function(mod)
       return call.x
     end
 
+    local function gen1PointInStyleSpace(fromTransform, toTransform, x, y)
+      if type(x) ~= "number" or type(y) ~= "number" then return x, y end
+      if fromTransform and toTransform
+          and type(fromTransform.transformPoint) == "function"
+          and type(toTransform.inverseTransformPoint) == "function" then
+        local okScreen, sx, sy = pcall(fromTransform.transformPoint,
+          fromTransform, x, y)
+        if okScreen and type(sx) == "number" and type(sy) == "number" then
+          local okLocal, lx, ly = pcall(toTransform.inverseTransformPoint,
+            toTransform, sx, sy)
+          if okLocal and type(lx) == "number" and type(ly) == "number" then
+            return lx, ly
+          end
+        end
+      end
+      return x, y
+    end
+
     local function gen1SameBaseline(a, b)
       return type(a) == "number" and type(b) == "number"
         and math.abs(a - b) <= 3
@@ -2533,20 +2560,39 @@ return function(mod)
     end
 
     local function gen1RowGeometry(calls, def)
-      local typeCall
+      -- GEN 1 Gen3UI anchor source: the literal TYPE label is the stable left
+      -- landmark of the footer row.  Do NOT derive category X from the visible
+      -- type value or from PP: both of those move with their contents in the
+      -- live v1.4.0 Gen 1 layout.
+      local typeCall, typeCallScore
       for _, call in ipairs(calls) do
-        if call.upper:find("TYPE", 1, true) then
-          typeCall = call
-          break
+        local compact = tostring(call.upper or ""):gsub("%s+", "")
+        if compact == "TYPE" then
+          local score = gen1StyleScore(call)
+          if typeCallScore == nil or score < typeCallScore then
+            typeCallScore = score
+            typeCall = call
+          end
+        end
+      end
+      if not typeCall then
+        for _, call in ipairs(calls) do
+          if call.upper:find("TYPE", 1, true) then
+            typeCall = call
+            break
+          end
         end
       end
       if not typeCall then return nil end
       local rowY = typeCall.y
-      local ppCall
+      local ppCall, ppScore
       for _, call in ipairs(calls) do
         if gen1SameBaseline(rowY, call.y) and call.upper:find("PP", 1, true) then
-          ppCall = call
-          break
+          local score = gen1StyleScore(call)
+          if ppScore == nil or score < ppScore then
+            ppScore = score
+            ppCall = call
+          end
         end
       end
       if not ppCall then return nil end
@@ -2621,25 +2667,39 @@ return function(mod)
         end
       end
 
-      if type(typeEnd) ~= "number" or type(ppX) ~= "number" or ppX <= typeEnd then
+      if type(typeEnd) ~= "number" or type(ppX) ~= "number" then
         return nil
       end
-      return { y = (typeStyle and typeStyle.y) or rowY,
-        typeEnd = typeEnd, ppX = ppX, style = typeStyle }
+
+      -- Fixed footer-local column.  One "cell" is the average advance of the
+      -- literal TYPE label itself, so the point scales naturally with the
+      -- replacement UI font/transform.  Column 24 was chosen from the live
+      -- Gen3UI v1.4.0 footer geometry and is intentionally independent of both
+      -- the type VALUE and the PP text/position.
+      local typeLabelWidth = gen1CallWidth(typeCall, "TYPE")
+      local cell = type(typeLabelWidth) == "number" and typeLabelWidth / 4 or nil
+      local fixedTypeX = type(cell) == "number" and cell > 0
+          and (typeCall.startX + cell * 24) or nil
+      local fixedStyleX, fixedStyleY
+      if type(fixedTypeX) == "number" then
+        fixedStyleX, fixedStyleY = gen1PointInStyleSpace(
+          typeCall.transform, typeStyle and typeStyle.transform,
+          fixedTypeX, typeCall.y)
+      end
+      if type(fixedStyleX) ~= "number" then return nil end
+
+      return { y = (typeStyle and typeStyle.y) or fixedStyleY or rowY,
+        typeEnd = typeEnd, fixedX = fixedStyleX, style = typeStyle }
     end
 
     local function gen1DrawObservedCategory(G, originalPrint, geom, label)
       if not (geom and geom.style and label) or geom.already then return false end
       local style = geom.style
-      local space = gen1CallWidth(style, " ")
-      local labelWidth = gen1CallWidth(style, label)
-      local left = geom.typeEnd + math.max(2, space)
-      local right = geom.ppX - math.max(2, space)
-      if right - left < labelWidth then return false end
-      local targetX = left + (right - left - labelWidth) / 2
-      local phaseX = type(style.startX) == "number"
-        and (style.startX - math.floor(style.startX)) or 0
-      local x = math.floor(targetX - phaseX + 0.5) + phaseX
+      local x = tonumber(geom.fixedX)
+      if type(x) ~= "number" or x <= 0 then return false end
+      -- X is a footer-local fixed column.  PP remains useful only to identify
+      -- that this is the Gen3UI footer row; its contents and position NEVER
+      -- participate in horizontal category placement.
       local y = geom.y
 
       local pushed = false
@@ -4216,7 +4276,7 @@ return function(mod)
     local standaloneMoveCategory = type(mod.find) == "function"
       and mod.find("move_category") ~= nil or false
     return {
-      modVersion = tostring(mod.version or "2.6.4"),
+      modVersion = tostring(mod.version or "2.6.5"),
       apiVersion = 1,
       gameplay = getGameplayConfig(),
       link = {
@@ -4251,7 +4311,7 @@ return function(mod)
 
   mod.exports.specialStatSplit = {
     apiVersion = 1,
-    modVersion = tostring(mod.version or "2.6.4"),
+    modVersion = tostring(mod.version or "2.6.5"),
     specialSplitActive = mod.exports.specialSplitActive,
     moveCategorySplitActive = mod.exports.moveCategorySplitActive,
     moveCategoryReadoutEnabled = mod.exports.moveCategoryReadoutEnabled,

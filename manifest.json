@@ -1,7 +1,7 @@
 {
   "id": "special_stat_split",
   "name": "Special Stat Split",
-  "version": "2.6.4",
+  "version": "2.6.5",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",

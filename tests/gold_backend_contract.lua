@@ -205,7 +205,7 @@ local function makeMod(mode, moveMode, rows)
     wraps[name] = { fn = fn, priority = priority }
   end
   local mod = {
-    version = "2.6.4",
+    version = "2.6.5",
     DELETE = DELETE,
     options = options,
     content = { moves = registry, link_fields = links },
@@ -354,8 +354,9 @@ wraps["render.hud"].fn(function()
 end, renderGame, {})
 local panelPhysical = assert(findRaw("PHYSICAL"),
   "Gen 3 UI render.hud observer did not draw PHYSICAL from live Gold state")
-assert(panelPhysical.y == 700 and panelPhysical.x > 530 and panelPhysical.x < 900,
-  "Gen 3 UI PHYSICAL was not placed in the observed TYPE/PP gap")
+local fixedFooterStartX = 450 + 24 * 6
+assert(panelPhysical.y == 700 and math.abs(panelPhysical.x - fixedFooterStartX) < 0.001,
+  "Gen 3 UI PHYSICAL start was not anchored to the fixed footer column")
 
 -- Once a Gen 3 UI TYPE/PP footer has been observed, the native Gold top-border
 -- readout must be mutually exclusive with it.  This is especially visible in
@@ -388,10 +389,10 @@ assert(colorMatchedPhysical.color
   and math.abs(colorMatchedPhysical.color[2] - 0.20) < 0.001
   and math.abs(colorMatchedPhysical.color[3] - 0.22) < 0.001,
   "Gen 3 UI category did not inherit the rendered move-type colour")
--- The injected category must use the FINAL type-token pass baseline/phase,
--- not the first TYPE helper pass.  This mirrors the live v1.4.0 footer, where
--- the visible type text can be a couple of pixels above the helper row and can
--- sit on a half-pixel X phase for mild antialiasing.
+-- The injected category must use the FINAL type-token pass baseline, while
+-- its X start stays on the footer-local fixed column.  The visible type text
+-- can sit a couple of pixels above the helper row; neither TYPE value length
+-- nor PP position/content may move the category's first letter.
 resetUiDraws()
 currentDrawColor = { 1, 1, 1, 1 }
 wraps["render.hud"].fn(function()
@@ -407,8 +408,8 @@ for _, row in ipairs(rawTextDraws) do
   if row.text == "PHYSICAL" then phased[#phased + 1] = row end
 end
 assert(#phased == 2, "Gen 3 UI softened semibold should render exactly two category passes")
-assert(phased[1].y == 698 and math.abs((phased[1].x % 1) - 0.5) < 0.001,
-  "Gen 3 UI category did not inherit the visible type-token baseline/subpixel phase")
+assert(phased[1].y == 698 and math.abs(phased[1].x - fixedFooterStartX) < 0.001,
+  "Gen 3 UI category did not keep the visible type-token baseline with fixed footer X")
 assert(math.abs(phased[2].x - phased[1].x - 0.5) < 0.001
   and phased[2].color and math.abs(phased[2].color[4] - 0.70) < 0.001,
   "Gen 3 UI softened semibold shoulder is not half-pixel/70% alpha")
@@ -435,7 +436,7 @@ end, renderGame, {})
 local scratchPhysical = assert(findRaw("PHYSICAL"),
   "Gen 3 UI visible move-name fallback did not resolve SCRATCH")
 assert(scratchPhysical.y == 700 and scratchPhysical.x > 550 and scratchPhysical.x < 900,
-  "SCRATCH category was not centered in the observed TYPE/PP gap")
+  "SCRATCH category was not placed inside the observed TYPE/PP gap")
 
 -- SPECIAL category through the same replacement-screen fallback.
 resetUiDraws()
@@ -443,9 +444,12 @@ wraps["render.hud"].fn(function()
   love.graphics.print("SHADOW BALL", 410, 650)
   love.graphics.print("TYPE", 450, 700)
   love.graphics.print("GHOST", 510, 700)
-  love.graphics.print("PP 15 / 15", 900, 700)
+  love.graphics.print("PP 15 / 15", 860, 700)
 end, renderGame, {})
-assert(findRaw("SPECIAL"), "Gen 3 UI visible move-name fallback did not draw SPECIAL")
+local panelSpecial = assert(findRaw("SPECIAL"),
+  "Gen 3 UI visible move-name fallback did not draw SPECIAL")
+assert(math.abs(panelSpecial.x - fixedFooterStartX) < 0.001,
+  "Gen 3 UI SPECIAL drifted when PP moved from the fixed footer column")
 
 -- STATUS category.
 resetUiDraws()
@@ -453,9 +457,12 @@ wraps["render.hud"].fn(function()
   love.graphics.print("SWORDS DANCE", 410, 650)
   love.graphics.print("TYPE", 450, 700)
   love.graphics.print("NORMAL", 510, 700)
-  love.graphics.print("PP 20 / 20", 900, 700)
+  love.graphics.print("PP 20 / 20", 940, 700)
 end, renderGame, {})
-assert(findRaw("STATUS"), "Gen 3 UI visible move-name fallback did not draw STATUS")
+local panelStatus = assert(findRaw("STATUS"),
+  "Gen 3 UI visible move-name fallback did not draw STATUS")
+assert(math.abs(panelStatus.x - fixedFooterStartX) < 0.001,
+  "Gen 3 UI STATUS drifted when PP/content changed from the fixed footer column")
 
 -- Whole-row renderer: TYPE/type/PP may be emitted in one call.
 resetUiDraws()

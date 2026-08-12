@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.6.5 — Stable Gen 3 UI footer column
+
+- Fixes horizontal category drift in **both Gen 1 and Pokémon Gold** when Gen 3 Inspired UI changes the width/position of the elemental type or PP text.
+- `PHYSICAL`, `SPECIAL`, and `STATUS` now anchor their **first letter** to a fixed footer-local column derived from the stable literal `TYPE` label rather than from the variable type value or PP field.
+- The Gen 1 implementation is the user-live-approved TEST F fixed-footer path; the Gold implementation uses the same fixed-column principle and is also user-live-approved.
+- Keeps the 2.6.4 native-readout suppression, visible-type baseline, font/colour inheritance, antialiasing, Gen 1 55% semibold weight, and Gold 70% semibold weight.
+- No battle math, category ownership, save/link behavior, native UI behavior without Gen 3 UI, or declared game support changes.
+
 ## 2.6.4 — Gen 3 UI native-readout suppression
 
 - Fixes a widescreen-only presentation leak where the old native category readout could remain visible outside the Gen 3 UI move panel while the correct inline **PHYSICAL / SPECIAL / STATUS** footer was also shown.

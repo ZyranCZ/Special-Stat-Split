@@ -1,4 +1,4 @@
-# Compatibility and collision audit — v2.6.4
+# Compatibility and collision audit — v2.6.5
 
 Last fully frozen audit baseline: Gen1Recomp v0.1.75 / `60cf07fb0a1ffce0ec6d5d0d2f78a921a6d0b7da`. This is not a runtime version gate.
 
@@ -18,7 +18,9 @@ For GEN IV+ mode, the narrow Gold bridge scopes a category around the engine's o
 
 The Gold readout uses the public `battle.overlay` hook and does not replace `BattleState:drawPanel`. It paints a selected-move category title into the move box top border while leaving native move rows, PP, cursor and SELECT reordering intact.
 
-Version **2.6.4** continues the **Gold-only** Gen 2 declaration in addition to Gen 1 (`games: ["gen1", "gold"]`). Gold boot/battle entry, native Summary split-stat presentation and the final category readout have live verification, and the Gen 3 UI move footer is live-verified on both Gold and Gen 1; Silver/Crystal remain outside the declared support set.
+Version **2.6.5** continues the **Gold-only** Gen 2 declaration in addition to Gen 1 (`games: ["gen1", "gold"]`). Gold boot/battle entry, native Summary split-stat presentation and the final category readout have live verification, and the Gen 3 UI move footer is live-verified on both Gold and Gen 1; Silver/Crystal remain outside the declared support set.
+
+The 2.6.5 Gen 3 UI fix is presentation-only: both backends anchor the category's first letter to a footer-local fixed column derived from the stable literal `TYPE` label. Variable type-value width and PP position/content no longer participate in horizontal category placement.
 
 ## Gen1Recomp engine-version policy
 

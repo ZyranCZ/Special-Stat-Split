@@ -1,4 +1,4 @@
-# Special Stat Split v2.6.4 — Gold / Gen 2 status
+# Special Stat Split v2.6.5 — Gold / Gen 2 status
 
 Port source baseline: Special Stat Split **2.5.2**, authoritative ZIP SHA-256 `0c61c8ae4eb537f5f45e586a4d965c4f5ae333e41289403e72144e86870b5e16`.
 
@@ -55,6 +55,7 @@ Current upstream UI re-audit anchor: `bryanthaboi/gen1recomp` `dev` commit `01aa
 | Version bump to 2.6.0 | VERIFIED | Gold feature release identity applied after user live UI approval |
 | 2.6.3 Gen 3 UI compatibility | LIVE PASS | inline foreign-UI presentation confirmed in real Gold; final font/colour/pixel alignment/bold weight accepted |
 | 2.6.4 Gen 3 UI duplicate suppression | LIVE PASS basis + regression PASS | native category readout is mutually exclusive with the observed Gen 3 UI footer in Gen 1 and Gold; widescreen legacy-label leak removed |
+| 2.6.5 Gen 3 UI fixed footer column | LIVE PASS + regression PASS | Gold category first-letter X is derived from the stable literal TYPE footer landmark, not variable type/PP text; Gen 1 uses the same policy independently |
 
 ## Current automated command
 
@@ -71,7 +72,15 @@ The Gold contract covers Fire Punch and Shadow Ball opposite-direction category 
 
 ## Release decision
 
-**Special Stat Split 2.6.4 is the live-verified Gold release baseline.** Native Gold mechanics remain inherited from 2.6.0, while the Gen 3 Inspired UI inline move-category row is now LIVE PASS. Silver/Crystal remain undeclared.
+**Special Stat Split 2.6.5 is the live-verified Gold release baseline.** Native Gold mechanics remain inherited from 2.6.0, while the Gen 3 Inspired UI inline move-category row is now LIVE PASS. Silver/Crystal remain undeclared.
+## 2.6.5 Gen 3 UI fixed footer column
+
+- Gold no longer derives inline category X from the PP field.
+- The first letter of `PHYSICAL`, `SPECIAL`, or `STATUS` is placed at a stable footer-local column derived from the literal `TYPE` label.
+- This was live-approved after reproducing PP drift in the real Gen 3 UI Gold footer.
+- Gen 1 uses its separately live-approved TEST F implementation of the same fixed-column principle.
+- Native Gold battle mechanics and the native top-border readout used without Gen 3 UI are unchanged.
+
 ## 2.6.4 Gen 3 UI duplicate suppression
 
 - Gen 3 UI footer presentation remains mechanically identical to the accepted 2.6.3 alignment/weight implementation.

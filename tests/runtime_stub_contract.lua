@@ -23,6 +23,7 @@ end
 local hudPrintCalls = {}
 local hudPrintRecords = {}
 local currentHudFont
+local currentHudTransform
 local function fakeFont(size)
   local f = { _size = tonumber(size) or 15 }
   function f:getHeight() return self._size end
@@ -48,6 +49,11 @@ _G.love = { graphics = {
   getFont = function() return currentHudFont or fakeFont(15) end,
   print = function(text, x, y, r, sx, sy)
     local value = tostring(text)
+    local screenX, screenY = x, y
+    if currentHudTransform and type(currentHudTransform.transformPoint) == 'function'
+        and type(x) == 'number' and type(y) == 'number' then
+      screenX, screenY = currentHudTransform:transformPoint(x, y)
+    end
     hudPrintCalls[#hudPrintCalls+1] = value
     hudPrintRecords[#hudPrintRecords+1] = {
       text = value,
@@ -56,6 +62,8 @@ _G.love = { graphics = {
       sy = type(sy) == 'number' and sy or 1,
       x = x,
       y = y,
+      screenX = screenX,
+      screenY = screenY,
     }
   end,
 } }
@@ -255,7 +263,7 @@ local optionReadout = READOUT_MODE ~= 'off'
 local registeredModernUiAdapter
 local specialExports = {}
 local specialHandle = {
-  id = 'special_stat_split', version = '2.6.4', exports = specialExports,
+  id = 'special_stat_split', version = '2.6.5', exports = specialExports,
 }
 local realModernUiMod
 local modernUiStub
@@ -338,7 +346,7 @@ function specialHooks:wrap(name, fn, priority)
 end
 local mod = {
   id = 'special_stat_split',
-  version = '2.6.4',
+  version = '2.6.5',
   hooks = specialHooks,
   options = {
     define = function(_, schema) specialOptionSchema = schema end,
@@ -502,7 +510,7 @@ expect(type(mod.exports.specialStatSplit) == 'table',
   'versioned inter-mod API table exists')
 expect(mod.exports.specialStatSplit.apiVersion == 1,
   'versioned inter-mod API reports apiVersion 1')
-expect(mod.exports.specialStatSplit.modVersion == '2.6.4',
+expect(mod.exports.specialStatSplit.modVersion == '2.6.5',
   'versioned inter-mod API reports release version')
 expect(mod.exports.specialStatSplit.specialSplitActive == mod.exports.specialSplitActive
   and mod.exports.specialStatSplit.moveCategorySplitActive == mod.exports.moveCategorySplitActive
@@ -513,7 +521,7 @@ expect(mod.exports.specialStatSplit.specialSplitActive == mod.exports.specialSpl
 expect(type(mod.exports.getDiagnostics) == 'function',
   'diagnostics export exists')
 local diagnostics = mod.exports.getDiagnostics()
-expect(diagnostics.apiVersion == 1 and diagnostics.modVersion == '2.6.4',
+expect(diagnostics.apiVersion == 1 and diagnostics.modVersion == '2.6.5',
   'diagnostics identify API/build version')
 expect(diagnostics.link.configRegistered == true
   and diagnostics.link.configRevision == expectedLinkRevision,
@@ -582,7 +590,13 @@ gen1Gen3Hud.fn(function()
 end, {data={moves=moveRecords}}, {})
 local expectedFull = optionMoveMode == 'gen4' and 'PHYSICAL' or 'SPECIAL'
 local fullCount = 0
-for _, value in ipairs(hudPrintCalls) do if value == expectedFull then fullCount = fullCount + 1 end end
+local gen1FixedColumnStartX
+for _, row in ipairs(hudPrintRecords) do
+  if row.text == expectedFull then
+    fullCount = fullCount + 1
+    gen1FixedColumnStartX = gen1FixedColumnStartX or row.x
+  end
+end
 if optionReadout then
   expect(fullCount == 2,
     'GEN 1 Gen 3 UI footer draws the full category with softened semibold overdraw')
@@ -601,6 +615,7 @@ end
 -- Status label through the live Gen 1 battle model.
 gen3Battle.player.curMoves[1] = {id='SWORDS_DANCE'}
 hudPrintCalls = {}
+hudPrintRecords = {}
 gen1Gen3Hud.fn(function()
   love.graphics.print('SWORDS DANCE', 410, 650)
   love.graphics.print('TYPE', 450, 700)
@@ -608,9 +623,98 @@ gen1Gen3Hud.fn(function()
   love.graphics.print('PP 20 / 20', 900, 700)
 end, {data={moves=moveRecords}}, {})
 local statusCount = 0
-for _, value in ipairs(hudPrintCalls) do if value == 'STATUS' then statusCount = statusCount + 1 end end
+local gen1StatusStartX
+for _, row in ipairs(hudPrintRecords) do
+  if row.text == 'STATUS' then
+    statusCount = statusCount + 1
+    gen1StatusStartX = gen1StatusStartX or row.x
+  end
+end
 expect((optionReadout and statusCount == 2) or ((not optionReadout) and statusCount == 0),
   'GEN 1 Gen 3 UI footer resolves STATUS and respects the readout toggle')
+if optionReadout then
+  expect(gen1FixedColumnStartX ~= nil and gen1StatusStartX ~= nil
+    and math.abs(gen1FixedColumnStartX - gen1StatusStartX) < 0.001,
+    'GEN 1 PHYSICAL/SPECIAL and STATUS do not share one fixed footer-column start X')
+
+  -- Regression: category X is a fixed footer-local column derived only from
+  -- the literal TYPE label.  Neither the visible type value nor PP position or
+  -- contents may move the FIRST LETTER.
+  local function gen1FixedAnchor(typeValue, ppText, ppX)
+    hudPrintCalls = {}
+    hudPrintRecords = {}
+    gen3Battle.player.curMoves[1] = {id='FIRE_PUNCH'}
+    gen1Gen3Hud.fn(function()
+      love.graphics.setFont(fakeFont(15))
+      love.graphics.print('FIRE PUNCH', 410, 650)
+      love.graphics.print('TYPE', 450, 700)
+      love.graphics.print(typeValue, 510, 700)
+      love.graphics.print(ppText, ppX, 700)
+    end, {data={moves=moveRecords}}, {})
+    for _, row in ipairs(hudPrintRecords) do
+      if row.text == expectedFull then return row.x end
+    end
+    return nil
+  end
+  local gen1AnchorA = gen1FixedAnchor('FIRE', 'PP 9 / 10', 860)
+  local gen1AnchorB = gen1FixedAnchor('ELECTRIC', 'PP 15 / 15', 900)
+  local gen1AnchorC = gen1FixedAnchor('NORMAL', 'PP 20 / 20', 940)
+  expect(gen1AnchorA ~= nil and gen1AnchorB ~= nil and gen1AnchorC ~= nil
+      and math.abs(gen1AnchorA - gen1AnchorB) < 0.001
+      and math.abs(gen1AnchorA - gen1AnchorC) < 0.001,
+    'GEN 1 fixed footer-column anchor drifted with TYPE value or PP')
+
+
+  -- PP may be drawn under a different transform, but PP is no longer an X
+  -- anchor.  Moving/scaling PP must therefore have zero effect on the category
+  -- first-letter screen position while the footer TYPE landmark stays fixed.
+  local function fakeTransform(sx, sy, tx, ty)
+    local t = { sx = sx or 1, sy = sy or sx or 1, tx = tx or 0, ty = ty or 0 }
+    function t:clone() return fakeTransform(self.sx, self.sy, self.tx, self.ty) end
+    function t:transformPoint(x, y)
+      return x * self.sx + self.tx, y * self.sy + self.ty
+    end
+    function t:inverseTransformPoint(x, y)
+      return (x - self.tx) / self.sx, (y - self.ty) / self.sy
+    end
+    return t
+  end
+  local G = love.graphics
+  local oldGetTransform, oldReplaceTransform = G.getTransform, G.replaceTransform
+  G.getTransform = function() return currentHudTransform end
+  G.replaceTransform = function(t) currentHudTransform = t end
+
+  local typeTransform = fakeTransform(1.0, 1.0, 0, 0)
+  local function gen1AnchorWithPpTransform(ppTransform, ppLocalX)
+    hudPrintCalls = {}
+    hudPrintRecords = {}
+    currentHudTransform = nil
+    gen3Battle.player.curMoves[1] = {id='FIRE_PUNCH'}
+    gen1Gen3Hud.fn(function()
+      currentHudTransform = typeTransform
+      love.graphics.setFont(fakeFont(15))
+      love.graphics.print('FIRE PUNCH', 410, 650)
+      love.graphics.print('TYPE', 450, 700)
+      love.graphics.print('FIRE', 510, 700)
+      currentHudTransform = ppTransform
+      love.graphics.print('PP 15 / 15', ppLocalX, 700)
+    end, {data={moves=moveRecords}}, {})
+    for _, row in ipairs(hudPrintRecords) do
+      if row.text == expectedFull then return row.screenX end
+    end
+    return nil
+  end
+  local gen1ScreenAnchorA = gen1AnchorWithPpTransform(
+    fakeTransform(1.25, 1.25, 120, 15), 600)
+  local gen1ScreenAnchorB = gen1AnchorWithPpTransform(
+    fakeTransform(0.75, 0.75, 300, 40), 830)
+  expect(gen1ScreenAnchorA ~= nil and gen1ScreenAnchorB ~= nil
+      and math.abs(gen1ScreenAnchorA - gen1ScreenAnchorB) < 0.001,
+    'GEN 1 fixed footer-column anchor drifted when PP transform/position changed')
+
+  currentHudTransform = nil
+  G.getTransform, G.replaceTransform = oldGetTransform, oldReplaceTransform
+end
 
 -- If a replacement screen hides the Gen 1 move cursor, infer the selected move
 -- from the visible leftmost move name rendered by Gen 3 UI.

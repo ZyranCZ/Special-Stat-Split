@@ -8,7 +8,7 @@ python3 tools/modkit.py gen2check <mod-path> --notes
 
 **Current status: BLOCKED in this workspace, not falsely marked PASS.** The original v2.5.2 baseline package does not include the engine's `tools/modkit.py`, and the current upstream checkout could not be cloned into the execution container because `github.com` was not resolvable there. Current upstream source and the official tool/docs were still inspected through the GitHub connector, but that is not equivalent to executing `gen2check`.
 
-A second attempt to clone the current `dev` tree failed with the same DNS-resolution error. Version 2.6.4 therefore ships with the manual/static equivalent audit plus headless Gold contracts and records the official command as an unexecuted verification item rather than claiming a false PASS.
+A second attempt to clone the current `dev` tree failed with the same DNS-resolution error. Version 2.6.5 therefore ships with the manual/static equivalent audit plus headless Gold contracts and records the official command as an unexecuted verification item rather than claiming a false PASS.
 
 ## Manual finding matrix
 
@@ -32,4 +32,4 @@ A second attempt to clone the current `dev` tree failed with the same DNS-resolu
 
 ## What a future official rerun should establish
 
-When an executable current upstream checkout is available, run the official command and record **every MK400–MK410 ERROR/WARN and every `unresolved:` site**. Any fatal finding or unexplained warning/unresolved site should be treated as a concrete compatibility regression to fix. Version 2.6.4 does not claim that this command was executed in the present workspace.
+When an executable current upstream checkout is available, run the official command and record **every MK400–MK410 ERROR/WARN and every `unresolved:` site**. Any fatal finding or unexplained warning/unresolved site should be treated as a concrete compatibility regression to fix. Version 2.6.5 does not claim that this command was executed in the present workspace.

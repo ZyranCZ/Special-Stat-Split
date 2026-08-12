@@ -1,4 +1,15 @@
-# Manual smoke test — v2.6.4
+# Manual smoke test — v2.6.5
+
+
+## 2.6.5 Gen 3 UI fixed-column smoke
+
+This release was live-approved in both target generations. For a regression recheck:
+
+1. Enable Gen 3 Inspired UI v1.4.0 and `MOVE CATEGORY READOUT = ON`.
+2. In **Red/Blue/Yellow**, move between Physical/Special/Status moves with different elemental type-name lengths and different PP counts. The **first letter** of the category label must remain at one fixed horizontal footer position.
+3. Repeat the same check in **Pokémon Gold**. The category start must remain fixed even when the PP field shifts.
+4. In both generations, confirm that the legacy/native category readout remains suppressed while Gen 3 UI owns the footer.
+5. Disable Gen 3 UI and confirm each generation's native readout still works as before.
 
 Frozen integration fixture: **Gen1Recomp v0.1.75**, commit `60cf07fb0a1ffce0ec6d5d0d2f78a921a6d0b7da`. Runtime compatibility is intentionally not pinned to this release.
 
