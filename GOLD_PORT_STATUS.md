@@ -1,4 +1,4 @@
-# Special Stat Split v2.6.3 — Gold / Gen 2 status
+# Special Stat Split v2.6.4 — Gold / Gen 2 status
 
 Port source baseline: Special Stat Split **2.5.2**, authoritative ZIP SHA-256 `0c61c8ae4eb537f5f45e586a4d965c4f5ae333e41289403e72144e86870b5e16`.
 
@@ -54,6 +54,7 @@ Current upstream UI re-audit anchor: `bryanthaboi/gen1recomp` `dev` commit `01aa
 | `games` Gold manifest opt-in | VERIFIED | final release declares `games: ["gen1", "gold"]`; Silver/Crystal are not claimed |
 | Version bump to 2.6.0 | VERIFIED | Gold feature release identity applied after user live UI approval |
 | 2.6.3 Gen 3 UI compatibility | LIVE PASS | inline foreign-UI presentation confirmed in real Gold; final font/colour/pixel alignment/bold weight accepted |
+| 2.6.4 Gen 3 UI duplicate suppression | LIVE PASS basis + regression PASS | native category readout is mutually exclusive with the observed Gen 3 UI footer in Gen 1 and Gold; widescreen legacy-label leak removed |
 
 ## Current automated command
 
@@ -70,7 +71,14 @@ The Gold contract covers Fire Punch and Shadow Ball opposite-direction category 
 
 ## Release decision
 
-**Special Stat Split 2.6.3 is the live-verified Gold release baseline.** Native Gold mechanics remain inherited from 2.6.0, while the Gen 3 Inspired UI inline move-category row is now LIVE PASS. Silver/Crystal remain undeclared.
+**Special Stat Split 2.6.4 is the live-verified Gold release baseline.** Native Gold mechanics remain inherited from 2.6.0, while the Gen 3 Inspired UI inline move-category row is now LIVE PASS. Silver/Crystal remain undeclared.
+## 2.6.4 Gen 3 UI duplicate suppression
+
+- Gen 3 UI footer presentation remains mechanically identical to the accepted 2.6.3 alignment/weight implementation.
+- Once a compatible `TYPE … PP` footer is active, the native Gold top-border category tab is suppressed instead of being drawn behind the replacement panel.
+- On Gen 1, the native `TYPE/` -> `PHYS/` / `SPEC/` Font shim is suppressed while Gen 3 UI owns the move footer, including protection from a downstream standalone Move Category wrapper.
+- This removes the legacy category text that becomes visible outside the replacement panel in widescreen layouts.
+
 ## 2.6.3 Gen 3 UI integration
 
 - Gen 3 Inspired UI Overhaul v1.4.0 release metadata / Gold support: STATICALLY VERIFIED via GitHub release.

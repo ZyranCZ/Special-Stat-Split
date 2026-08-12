@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.6.4 — Gen 3 UI native-readout suppression
+
+- Fixes a widescreen-only presentation leak where the old native category readout could remain visible outside the Gen 3 UI move panel while the correct inline **PHYSICAL / SPECIAL / STATUS** footer was also shown.
+- Gold / Generation II now treats the native top-border category tab and the Gen 3 UI footer as mutually exclusive; an active or runtime-observed Gen 3 UI footer suppresses the native tab.
+- Red / Blue / Yellow now suppress the native `TYPE/` -> `PHYS/` / `SPEC/` draw completely while Gen 3 UI owns the move footer, preventing both the integrated shim and a downstream standalone Move Category wrapper from leaking behind the replacement UI.
+- Native Gen 1 and native Gold readouts are unchanged when Gen 3 UI is absent.
+- No battle math, category routing, alignment, font weight, antialiasing, save behavior, link fingerprinting, or declared game support changes.
+
 ## 2.6.3 — Gen 3 UI footer polish
 
 - Refines the live-verified Gen 3 UI category alignment and antialiasing for the 2.6.3 release.

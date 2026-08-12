@@ -255,7 +255,7 @@ local optionReadout = READOUT_MODE ~= 'off'
 local registeredModernUiAdapter
 local specialExports = {}
 local specialHandle = {
-  id = 'special_stat_split', version = '2.6.3', exports = specialExports,
+  id = 'special_stat_split', version = '2.6.4', exports = specialExports,
 }
 local realModernUiMod
 local modernUiStub
@@ -338,7 +338,7 @@ function specialHooks:wrap(name, fn, priority)
 end
 local mod = {
   id = 'special_stat_split',
-  version = '2.6.3',
+  version = '2.6.4',
   hooks = specialHooks,
   options = {
     define = function(_, schema) specialOptionSchema = schema end,
@@ -502,7 +502,7 @@ expect(type(mod.exports.specialStatSplit) == 'table',
   'versioned inter-mod API table exists')
 expect(mod.exports.specialStatSplit.apiVersion == 1,
   'versioned inter-mod API reports apiVersion 1')
-expect(mod.exports.specialStatSplit.modVersion == '2.6.3',
+expect(mod.exports.specialStatSplit.modVersion == '2.6.4',
   'versioned inter-mod API reports release version')
 expect(mod.exports.specialStatSplit.specialSplitActive == mod.exports.specialSplitActive
   and mod.exports.specialStatSplit.moveCategorySplitActive == mod.exports.moveCategorySplitActive
@@ -513,7 +513,7 @@ expect(mod.exports.specialStatSplit.specialSplitActive == mod.exports.specialSpl
 expect(type(mod.exports.getDiagnostics) == 'function',
   'diagnostics export exists')
 local diagnostics = mod.exports.getDiagnostics()
-expect(diagnostics.apiVersion == 1 and diagnostics.modVersion == '2.6.3',
+expect(diagnostics.apiVersion == 1 and diagnostics.modVersion == '2.6.4',
   'diagnostics identify API/build version')
 expect(diagnostics.link.configRegistered == true
   and diagnostics.link.configRevision == expectedLinkRevision,
@@ -586,6 +586,13 @@ for _, value in ipairs(hudPrintCalls) do if value == expectedFull then fullCount
 if optionReadout then
   expect(fullCount == 2,
     'GEN 1 Gen 3 UI footer draws the full category with softened semibold overdraw')
+  -- After a compatible Gen 3 UI footer is observed, the old native TYPE/ slot
+  -- must not draw PHYS/SPEC (or even pass TYPE/ into a standalone wrapper).
+  -- Otherwise the legacy label can leak outside the replacement panel in
+  -- widescreen layouts.
+  resetFontCalls(); Font.draw('TYPE/', 8, 72)
+  expect(#fontCalls == 0,
+    'GEN 1 native category label leaked behind the active Gen 3 UI footer')
 else
   expect(fullCount == 0,
     'GEN 1 Gen 3 UI footer respects MOVE CATEGORY READOUT OFF')

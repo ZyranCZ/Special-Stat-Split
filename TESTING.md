@@ -1,10 +1,10 @@
-# Manual smoke test — v2.6.3
+# Manual smoke test — v2.6.4
 
 Frozen integration fixture: **Gen1Recomp v0.1.75**, commit `60cf07fb0a1ffce0ec6d5d0d2f78a921a6d0b7da`. Runtime compatibility is intentionally not pinned to this release.
 
 Automated tests cover the full stat/category tables, Gen IV–IX parity, collision guards, gameplay-config link revisions, public API/diagnostics contracts, source guards and operand routing. Manual testing should focus on real-game integration, third-party combinations and the real two-peer handshake.
 
-The 2.6.3 release has user-confirmed Gold boot/battle, Summary/category-readout smoke and live Gen 3 UI move-footer smoke on both Gold and Gen 1. Dedicated multiplayer certification is optional rather than a release gate; see `OPTIONAL_LINK_QA_2.5.2.md` if it is ever tested later.
+The 2.6.4 release has user-confirmed Gold boot/battle, Summary/category-readout smoke and live Gen 3 UI move-footer smoke on both Gold and Gen 1. Dedicated multiplayer certification is optional rather than a release gate; see `OPTIONAL_LINK_QA_2.5.2.md` if it is ever tested later.
 
 
 ## Gen 1 + Gen 3 Inspired UI move-category check
@@ -19,7 +19,7 @@ The 2.6.3 release has user-confirmed Gold boot/battle, Summary/category-readout 
 
 ## Gold + Gen 3 Inspired UI Overhaul v1.4.0
 
-1. Enable `gen3_battle_ui` v1.4.0 and Special Stat Split 2.6.3 on Gold.
+1. Enable `gen3_battle_ui` v1.4.0 and Special Stat Split 2.6.4 on Gold.
 2. Keep **MOVE CATEGORY READOUT = ON** and enter FIGHT.
 3. Highlight a modern **Physical** move (Bite or Fire Punch are suitable): the bottom information row should retain `TYPE <element>` on the left and `PP` on the right, with **PHYSICAL** in the gap on the **same row**.
 4. Highlight a modern **Special** move such as Water Gun/Flamethrower/Shadow Ball as appropriate to the current moveset: the same location should read **SPECIAL**.

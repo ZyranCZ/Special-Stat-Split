@@ -17,7 +17,7 @@ local Fingerprint = chunk()
 assert(type(Fingerprint) == "table" and type(Fingerprint.compute) == "function",
   "frozen Fingerprint API unavailable")
 
-local mods = {{ id = "special_stat_split", version = "2.6.3", affectsLink = true }}
+local mods = {{ id = "special_stat_split", version = "2.6.4", affectsLink = true }}
 local function data(rev)
   return { link_fields = { special_stat_split_rules = { rev = rev } } }
 end

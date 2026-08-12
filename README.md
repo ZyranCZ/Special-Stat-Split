@@ -1,6 +1,6 @@
 # Special Stat Split
 
-**Special Stat Split 2.6.3** combines the stat split, per-move category mechanics, and the former standalone Move Category readout in one Gen1Recomp mod:
+**Special Stat Split 2.6.4** combines the stat split, per-move category mechanics, and the former standalone Move Category readout in one Gen1Recomp mod:
 
 1. **Generation II Special-stat split** — the original calculated `SPECIAL` becomes separate **Sp. Atk** and **Sp. Def**.
 2. **Modern per-move damage categories** — original moves can use the Generation IV+ **Physical / Special / Status** category of the individual move instead of Generation I's category-by-elemental-type rule.
@@ -12,7 +12,7 @@ A FIRE move is therefore not automatically special in modern mode: **Fire Punch 
 
 ## Pokémon Gold / Gen 2 support
 
-Version **2.6.0** introduced the generation-isolated Gold backend and `games: ["gen1", "gold"]`. The current 2.6.3 compatibility work keeps Gold mechanics unchanged and supports **Gen 3 Inspired UI Overhaul** move-category presentation on both Red/Blue/Yellow and Gold. Red/Blue/Yellow keep the established Gen 1 backend while Pokémon Gold uses its native Generation II stat systems plus this mod's optional per-move category layer.
+Version **2.6.0** introduced the generation-isolated Gold backend and `games: ["gen1", "gold"]`. The current 2.6.4 compatibility work keeps Gold mechanics unchanged and supports **Gen 3 Inspired UI Overhaul** move-category presentation on both Red/Blue/Yellow and Gold. Red/Blue/Yellow keep the established Gen 1 backend while Pokémon Gold uses its native Generation II stat systems plus this mod's optional per-move category layer.
 
 On **Red / Blue / Yellow**, behavior remains the established v2.5.2 contract. On **Pokémon Gold**:
 
@@ -25,9 +25,9 @@ On **Red / Blue / Yellow**, behavior remains the established v2.5.2 contract. On
 - With **Gen 3 Inspired UI Overhaul** active on Red/Blue/Yellow, the same capability-based footer observer is installed independently in the Gen 1 backend. It leaves the proven native `TYPE/` -> `PHYS/` / `SPEC/` path intact for the original battle UI, but when Gen 3 UI exposes a wide `TYPE … PP` footer it inserts **PHYSICAL / SPECIAL / STATUS** there automatically. The label inherits the observed footer font/colour/transform, inherits the visible type-token baseline/subpixel phase and uses the live-tested softened semibold treatment.
 - Gen1 Modern UI and CRYSTAL 251 compatibility shims are treated as **Gen 1-only** on Gold; native Gold systems are not patched through those paths.
 
-Gold boot, battle entry, native split-stat Summary presentation and the native selected-move category readout were live-tested on Gen1Recomp/Gold. The **2.6.3 Gen 3 UI footer integration is also live-verified on Gold and on a Gen 1 game**, including font colour, baseline alignment, subpixel antialiasing and bold weight. Gold uses a slightly stronger semibold shoulder than Gen 1 by design. The bundled suite additionally covers category routing, AI, Counter/Mirror Coat basis, type-based fallback, API/link semantics and Gen 1 regressions. Remaining edge-case/live matrices are documented in `GOLD_PORT_STATUS.md`; Silver/Crystal are not claimed by this release.
+Gold boot, battle entry, native split-stat Summary presentation and the native selected-move category readout were live-tested on Gen1Recomp/Gold. The **2.6.4 Gen 3 UI footer integration is also live-verified on Gold and on a Gen 1 game**, including font colour, baseline alignment, subpixel antialiasing and bold weight. Gold uses a slightly stronger semibold shoulder than Gen 1 by design. The bundled suite additionally covers category routing, AI, Counter/Mirror Coat basis, type-based fallback, API/link semantics and Gen 1 regressions. Remaining edge-case/live matrices are documented in `GOLD_PORT_STATUS.md`; Silver/Crystal are not claimed by this release.
 
-## 2.6.3 compatibility policy
+## 2.6.4 compatibility policy
 
 Special Stat Split no longer pins a specific Gen1Recomp release in `manifest.json`. New Gen1Recomp releases are allowed to load the mod automatically; a version-number change by itself is **not** treated as incompatibility. The policy is now **try to run first, update only if a real breakage is observed**.
 
@@ -41,7 +41,7 @@ The manifest still declares Mod API `2`, because that is the structural API cont
 - Presentation-only settings are deliberately excluded from the gameplay revision.
 - Core stat math, move-category data, save behavior and the existing Modern UI renderers are inherited unchanged from 2.4.2.
 
-This is the **2.6.3 compatibility release**. The Gen 3 UI move-category presentation is user-live-tested on both Gold and Gen 1, and the in-game single-player/UI paths were smoke-tested successfully. Dedicated two-peer link certification is not a release blocker; gameplay-option fingerprinting remains a best-effort safeguard through Gen1Recomp's public `link_fields.rev` fingerprint surface.
+This is the **2.6.4 compatibility release**. The Gen 3 UI move-category presentation is user-live-tested on both Gold and Gen 1, and the in-game single-player/UI paths were smoke-tested successfully. Dedicated two-peer link certification is not a release blocker; gameplay-option fingerprinting remains a best-effort safeguard through Gen1Recomp's public `link_fields.rev` fingerprint surface.
 
 ## Target
 

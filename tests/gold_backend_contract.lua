@@ -205,7 +205,7 @@ local function makeMod(mode, moveMode, rows)
     wraps[name] = { fn = fn, priority = priority }
   end
   local mod = {
-    version = "2.6.3",
+    version = "2.6.4",
     DELETE = DELETE,
     options = options,
     content = { moves = registry, link_fields = links },
@@ -309,6 +309,15 @@ overlayScreen.moveSwapIndex = nil
 assert(wraps["battle.overlay"].priority == math.huge,
   "Gold readout wrapper must stay outermost for automatic Gen 3 UI inline capture")
 
+-- When the loader exposes the active Gen 3 UI handle, suppress the native Gold
+-- tab immediately, even before the first observed render.hud footer frame.
+values.__gen3Ui = { id = "gen3_battle_ui", version = "1.4.0" }
+overlayMarks, overlayRects = {}, {}
+wraps["battle.overlay"].fn(function() end, overlayScreen)
+assert(#overlayMarks == 0 and #overlayRects == 0,
+  "Gold native category tab was not suppressed by declared active Gen 3 UI")
+values.__gen3Ui = nil
+
 -- Gen 3 Inspired UI v1.4.0 Gold move-panel compatibility.  This bridge does
 -- not rely on battle.overlay, a foreign mod id, a hard-coded BattleState class,
 -- or fixed screen coordinates.  It wraps the final render.hud chain, observes
@@ -347,6 +356,15 @@ local panelPhysical = assert(findRaw("PHYSICAL"),
   "Gen 3 UI render.hud observer did not draw PHYSICAL from live Gold state")
 assert(panelPhysical.y == 700 and panelPhysical.x > 530 and panelPhysical.x < 900,
   "Gen 3 UI PHYSICAL was not placed in the observed TYPE/PP gap")
+
+-- Once a Gen 3 UI TYPE/PP footer has been observed, the native Gold top-border
+-- readout must be mutually exclusive with it.  This is especially visible in
+-- widescreen, where the replaced 160x144 battle canvas does not fully cover
+-- the old label area.
+overlayMarks, overlayRects = {}, {}
+wraps["battle.overlay"].fn(function() end, overlayScreen)
+assert(#overlayMarks == 0 and #overlayRects == 0,
+  "Gold native category tab leaked behind the active Gen 3 UI footer")
 
 -- The category text must inherit the TYPE/type-value colour, not PP or any
 -- lighter footer colour.  This mirrors Gen 3 UI v1.4.0, where TYPE WATER and

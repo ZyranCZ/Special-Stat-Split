@@ -1,4 +1,4 @@
--- SPECIAL STAT SPLIT v2.6.3
+-- SPECIAL STAT SPLIT v2.6.4
 -- Release build for Gen1Recomp commit 60cf07fb0a1ffce0ec6d5d0d2f78a921a6d0b7da.
 --
 -- Scope: Generation II Special stat split + Generation IV+ per-move damage categories + integrated move-category battle readout.
@@ -1548,7 +1548,13 @@ local function runGoldBackend(mod)
     hooks:wrap("battle.overlay", function(next, screen)
       goldLastScreen = screen
       local result = pack(next(screen))
+      local gen3ActiveNow = gen3UiRuntimeDetected
+      if not gen3ActiveNow then
+        local active = gen3UiActive()
+        gen3ActiveNow = active and true or false
+      end
       if mod.options:get("move_category_readout") == false
+          or gen3ActiveNow
           or type(screen) ~= "table" or screen.phase ~= "moves" then
         return unpack(result, 1, result.n)
       end
@@ -2046,7 +2052,7 @@ local function runGoldBackend(mod)
       and mod.find("move_category") ~= nil or false
     local gen3Ui = gen3UiHandleForDiagnostics()
     return {
-      modVersion = tostring(mod.version or "2.6.3"),
+      modVersion = tostring(mod.version or "2.6.4"),
       apiVersion = 1,
       generation = "gold",
       requested = getGameplayConfig(),
@@ -2106,7 +2112,7 @@ local function runGoldBackend(mod)
 
   mod.exports.specialStatSplit = {
     apiVersion = 1,
-    modVersion = tostring(mod.version or "2.6.3"),
+    modVersion = tostring(mod.version or "2.6.4"),
     specialSplitActive = mod.exports.specialSplitActive,
     moveCategorySplitActive = mod.exports.moveCategorySplitActive,
     moveCategoryReadoutEnabled = mod.exports.moveCategoryReadoutEnabled,
@@ -2119,7 +2125,7 @@ local function runGoldBackend(mod)
   }
   mod.exports.specialStatSplitV2 = {
     apiVersion = 2,
-    modVersion = tostring(mod.version or "2.6.3"),
+    modVersion = tostring(mod.version or "2.6.4"),
     generation = function() return "gold" end,
     getRequestedGameplayConfig = getGameplayConfig,
     getEffectiveGameplayConfig = getEffectiveGameplayConfig,
@@ -2264,6 +2270,28 @@ return function(mod)
   -- If either mod's readout toggle is ON, the readout is visible; if both are OFF,
   -- vanilla TYPE/ is preserved.
   do
+    local gen1Gen3UiRuntimeDetected = false
+    local function gen1Gen3UiDeclaredActive()
+      if type(mod.find) == "function" then
+        for _, id in ipairs({ "gen3_battle_ui", "gen3_battle_ui_overhaul", "gen3_ui" }) do
+          local ok, handle = pcall(mod.find, id)
+          if ok and handle then return true end
+        end
+      end
+      local ok, Runtime = pcall(require, "src.mods.Runtime")
+      local hooks = ok and Runtime and Runtime.hooks or nil
+      local chain = hooks and hooks.chains and hooks.chains["render.hud"]
+      if type(chain) == "table" then
+        for _, entry in ipairs(chain) do
+          if type(entry) == "table" and type(entry.callback) == "function"
+              and tostring(entry.owner or "") == "gen3_battle_ui" then
+            return true
+          end
+        end
+      end
+      return false
+    end
+
     local LABELS = { physical = "PHYS/", special = "SPEC/" }
     local TYPE_LABEL = Strings("TYPE/")
     local TypeChart = require("src.battle.TypeChart")
@@ -2279,6 +2307,13 @@ return function(mod)
       rawset(Font, MOVE_READOUT_PATCH_KEY, readout)
 
       Font.draw = function(text, x, y, ...)
+        if text == readout.typeLabel and type(readout.suppressNativeType) == "function"
+            and readout.suppressNativeType() then
+          -- Gen 3 UI owns the wide move footer.  Do not let our native Gen 1
+          -- TYPE/ -> PHYS/SPEC shim (or a downstream standalone copy) leak out
+          -- behind that replacement panel, especially in widescreen layouts.
+          return nil
+        end
         if text == readout.typeLabel and type(readout.categoryLabel) == "function" then
           text = readout.categoryLabel(readout.currentBattle) or text
         end
@@ -2288,6 +2323,9 @@ return function(mod)
 
     -- Hot reload updates behavior/state without stacking another Font.draw wrapper.
     readout.typeLabel = TYPE_LABEL
+    readout.suppressNativeType = function()
+      return gen1Gen3UiRuntimeDetected or gen1Gen3UiDeclaredActive()
+    end
     readout.categoryLabel = function(battle)
       if mod.options:get("move_category_readout") == false then return nil end
       if not battle or battle.phase ~= "moveSelect" then return nil end
@@ -2682,6 +2720,9 @@ return function(mod)
             if not def then selected, def = gen1SelectedFromHud(calls, data, typeY) end
             local geom = def and gen1RowGeometry(calls, def) or nil
             local label = def and gen1FullCategoryLabel(selected and selected.id, def) or nil
+            if geom then
+              gen1Gen3UiRuntimeDetected = true
+            end
             if geom and label and not geom.already then
               gen1DrawObservedCategory(G, originalPrint, geom, label)
             end
@@ -4175,7 +4216,7 @@ return function(mod)
     local standaloneMoveCategory = type(mod.find) == "function"
       and mod.find("move_category") ~= nil or false
     return {
-      modVersion = tostring(mod.version or "2.6.3"),
+      modVersion = tostring(mod.version or "2.6.4"),
       apiVersion = 1,
       gameplay = getGameplayConfig(),
       link = {
@@ -4210,7 +4251,7 @@ return function(mod)
 
   mod.exports.specialStatSplit = {
     apiVersion = 1,
-    modVersion = tostring(mod.version or "2.6.3"),
+    modVersion = tostring(mod.version or "2.6.4"),
     specialSplitActive = mod.exports.specialSplitActive,
     moveCategorySplitActive = mod.exports.moveCategorySplitActive,
     moveCategoryReadoutEnabled = mod.exports.moveCategoryReadoutEnabled,
