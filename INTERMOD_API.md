@@ -28,7 +28,7 @@ end
 
 ## Compatibility rules
 
-Consumers should check `apiVersion` rather than the Special Stat Split release number. Do not mutate returned diagnostic/config tables and do not depend on undocumented fields. The legacy root exports are retained in 2.5.1 so existing consumers continue to work.
+Consumers should check `apiVersion` rather than the Special Stat Split release number. Do not mutate returned diagnostic/config tables and do not depend on undocumented fields. The legacy root exports are retained in 2.6.0 so existing consumers continue to work.
 
 ## Link-safety contract
 
@@ -38,3 +38,26 @@ The gameplay revision contains only restart-required battle-math choices:
 - `move=gen1|gen4`
 
 Presentation-only options intentionally do not enter this revision. Special Stat Split registers the revision through Gen1Recomp's public `link_fields` registry; it does not wrap or replace the engine's `link.fingerprint` hook.
+## API v2 for generation-aware consumers
+
+Version 2.6.0 adds `handle.exports.specialStatSplitV2` without changing the meaning/version number of the legacy v1 table. Consumers should feature-detect it rather than infer support from the mod release number.
+
+`specialStatSplitV2` currently exposes:
+
+- `apiVersion = 2`
+- `generation()` — currently returns `"gold"` on the Gold backend.
+- `getRequestedGameplayConfig()` — the saved/shared option request.
+- `getEffectiveGameplayConfig()` — the mechanics actually active for the current game. On Gold, Special stats are always `native_gen2`; move categories are `type_based_gen2` or `gen4`.
+- `getEffectiveSpecialBaseStats(species)` — reads native Gold `specialAttack` / `specialDefense` base data when available.
+- `getMoveCategory(move)` — the effective modern category helper when GEN IV+ mode is active.
+- `attachSplitStats(mon)` — retained as a generation-safe no-op on Gold; it never recalculates or overwrites native Gold stats.
+- `getDiagnostics()` — includes requested/effective configuration, Gold category-bridge/readout coverage and applicability of optional Gen 1 integrations.
+
+### Legacy v1 behavior on Gold
+
+API v1 remains `apiVersion = 1`. `getSpecialBaseStats()` returns `nil` on Gold instead of silently redefining the historical v1 function around Gold-native data, and `attachSplitStats(mon)` returns the mon unchanged. New consumers that need native Gold values should use API v2.
+
+### Gold link revision
+
+When the engine exposes `link_fields`, Gold fingerprints **effective gameplay**, not the no-op requested Special setting. Both requested `VANILLA` and `GEN II` therefore use `special=native_gen2`; only `move=type_gen2` versus `move=gen4` is a Gold gameplay distinction. This avoids a false mismatch between two mechanically identical Gold Special-stat settings.
+

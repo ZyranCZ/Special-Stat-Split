@@ -1,4 +1,4 @@
-# Differences from vanilla Gen1Recomp — v2.5.1
+# Differences from vanilla Gen1Recomp — v2.5.2
 
 
 ## Link/configuration behavior added in 2.5.0

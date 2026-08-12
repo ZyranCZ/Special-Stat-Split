@@ -42,6 +42,8 @@ if [[ -n "${MODERN_UI_MAIN:-}" ]]; then
 fi
 texlua tests/crystal251_contract.lua gen4
 texlua tests/crystal251_contract.lua gen1
+python3 tools/verify_gold_backend.py
+texlua tests/gold_backend_contract.lua
 if [[ $# -ge 1 ]]; then
   FROZEN="$1"
   python3 tools/verify_frozen_sources.py "$FROZEN"

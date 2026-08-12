@@ -1,6 +1,6 @@
-# SPECIAL STAT SPLIT 2.5.1 — specification
+# SPECIAL STAT SPLIT 2.5.2 — specification
 
-Frozen upstream: Gen1Recomp `60cf07fb0a1ffce0ec6d5d0d2f78a921a6d0b7da` (v0.1.75).
+Frozen audit fixture: Gen1Recomp `60cf07fb0a1ffce0ec6d5d0d2f78a921a6d0b7da` (v0.1.75). This fixture is not a manifest engine-version restriction.
 
 ## Inter-mod and link contracts
 

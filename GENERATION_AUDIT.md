@@ -67,3 +67,20 @@ A particularly important lesson is that **generation alone may not fully identif
 ## Sources used for the audit
 
 The category table is cross-checked against PokeAPI move damage classes and Pokémon Showdown's current + generation override data. Exact original move identity/order is tied to Gen1Recomp's frozen ROM manifest and pret/pokered move constants. Historical parameter differences are retained in `data/move_data_changelog_gen4plus.csv` so the result can be independently inspected without trusting a prose summary.
+## Gold backend generation matrix (development checkpoint)
+
+| Feature | Gen 1 native | Special Stat Split on Gen 1 | Gold native | Special Stat Split on Gold |
+|---|---|---|---|---|
+| Special stats | one `SPECIAL` | optional Gen II Sp. Atk / Sp. Def emulation | native Sp. Atk / Sp. Def | untouched (`native_gen2`) |
+| Special DV / Stat Exp | one legacy Special source | shared to both derived split stats | native shared Special DV / Stat Exp | untouched |
+| Damage stat pair | type-derived | type-derived or per-move | type-derived | type-derived or per-move |
+| Move type | Gen 1 move type | unchanged | Gold move type | unchanged |
+| X SPECIAL / Growth / Amnesia / Psychic | Gen 1 behavior | Gen II-style corrections when split enabled | native Gen II behavior | untouched |
+| Save schema | no split fields | derived fields stripped/restored around Gen 1 serializer | native Gold model | untouched |
+| Summary / level-up split stats | one Special | mod presentation | native split presentation | untouched |
+| Move-category readout | Gen 1 `TYPE/` field | `PHYS/` / `SPEC/` replacement | no spare `TYPE/` field | public-overlay `P` / `S` selected-move marker |
+| Crystal 251 bridge | optional interoperability | supported | Johto is native | not applicable |
+| Gen1 Modern UI stat bridge | optional interoperability | supported | not a Gold requirement | not applied |
+
+Gold's type-based mode always uses the **Gold** type/category data, not Red/Blue type semantics. GEN IV+ changes only category selection; type-driven mechanics continue to use the final merged Gold move type and type chart.
+

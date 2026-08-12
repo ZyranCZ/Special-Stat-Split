@@ -1,22 +1,33 @@
-# Verification report — v2.5.1
+# Verification report — v2.6.0
 
 
-## 2.5.1 release-metadata hotfix gate — PASS (automated)
+
+## 2.6.0 Gold release gate — PASS for packaged automated contracts
+
+- Release identity is `2.6.0` in manifest, source header, runtime API fallbacks and source/runtime tests.
+- Manifest targets `gen1` + `gold`, keeps `api = 2`, `experimental = false`, and has no engine `game_version` pin.
+- Gold backend is isolated before Gen 1-only internals load.
+- Gold boot/battle entry, native Summary split-stat presentation and final category readout are user-live-tested on v0.1.78.
+- Full bundled Gen 1/Crystal/Gold regression suite passes from source and from the final packaged ZIP.
+- Official current-upstream `modkit gen2check --notes` remains unavailable in this workspace and is not falsely claimed as executed; see `GEN2CHECK_STATIC_AUDIT.md`.
+
+## 2.5.2 forward-compatibility release gate — PASS (automated)
 
 - Verified source baseline: final assistant-delivered `special_stat_split_v2.5.0.zip`, SHA-256 `599f73249c8b26922dc94ef78b3d3ce5469acbff51457b5e4a69fd84f04df6a7`.
-- Manifest and `main.lua` identity moved to `2.5.1`; `experimental=false`, `affects_link=true` and the exact v0.1.75 game-version pin are retained.
+- Manifest and `main.lua` identity moved to `2.5.2`; `experimental=false` and `affects_link=true` are retained.
+- The manifest deliberately contains **no `game_version` field**, so a future Gen1Recomp engine release number cannot by itself disable the mod.
 - Inherited public `specialStatSplit` API reports `apiVersion = 1` and aliases the legacy implementation functions rather than duplicating battle logic.
 - `getGameplayConfig()` returns a defensive copy; diagnostics expose link registration and detected integrations without mutating them.
 - All four gameplay combinations produce distinct deterministic `link_fields.rev` strings; source contract rejects any Special Stat Split wrapper around `link.fingerprint`.
 - The normal runtime suite passes across GEN II/VANILLA × GEN IV+/GEN I combinations, readout/standalone combinations, Modern UI capability guards and Crystal 251 contracts.
 - Frozen upstream fingerprint execution is wired into `tools/run_all.sh` when the pinned Gen1Recomp source root is supplied. It was not executable in this build environment because that external frozen source tree was not locally available.
-- User-reported in-game functional/UI smoke: **PASS** for the final promotion. Dedicated real two-peer link QA was **not performed and is not claimed as certified**; an optional matrix is retained in `OPTIONAL_LINK_QA_2.5.1.md`.
+- User-reported in-game functional/UI smoke: **PASS** for the final promotion. Dedicated real two-peer link QA was **not performed and is not claimed as certified**; an optional matrix is retained in `OPTIONAL_LINK_QA_2.5.2.md`.
 ## PASS — Party layout choice
 
 The option schema defaults to `2 ROWS`; `1 ROW` renders exactly `ATK / DEF / SPD / SPATK / SPDEF`. Both modes are exercised against the real Modern UI 0.8.4 renderer, including a narrow panel, with shared adaptive font sizing and no intentional ellipsis. Summary regression remains unchanged.
 
 
-Frozen target: Gen1Recomp `v0.1.75`, commit `60cf07fb0a1ffce0ec6d5d0d2f78a921a6d0b7da`.
+Frozen historical integration baseline: Gen1Recomp `v0.1.75`, commit `60cf07fb0a1ffce0ec6d5d0d2f78a921a6d0b7da` (audit fixture only; no runtime pin).
 
 ## 2.4.2 source / Modern UI 0.8.4 gate
 
@@ -26,7 +37,7 @@ Frozen target: Gen1Recomp `v0.1.75`, commit `60cf07fb0a1ffce0ec6d5d0d2f78a921a6d
 - `drawParty`, `drawMonDetail`, `displayStats`, and the Summary stat-page renderer used by the ordinary shim are unchanged from 0.8.3.
 - The ordinary surgical shim is no longer release-number allowlisted. It is verified against 0.8.3/0.8.4 and also tested with a synthetic future 0.9.9 version exposing the same renderer capabilities.
 - Full runtime suite passes against the real 0.8.4 source and regression checks also pass against 0.8.3.
-- Frozen Gen1Recomp v0.1.75 source hashes and integration suite pass.
+- The existing frozen Gen1Recomp v0.1.75 source-hash/integration fixture remains preserved as a historical exact baseline; 2.5.2 no longer uses that release number as a load condition.
 
 
 ## Source baseline discipline — PASS
@@ -118,11 +129,11 @@ The complete frozen integration suite was rerun for v2.4.2 against the exact Gen
 
 ## Manual release state
 
-- Final 2.5.1 in-game functional/UI smoke: **PASS (user-reported)**.
+- Final 2.5.2 inherited in-game functional/UI smoke: **PASS (user-reported)**.
 - Integrated Move Category readout and Modern UI presentation paths: **PASS in the user's live smoke**, with automated coexistence/capability coverage retained.
-- Dedicated two-peer live link battle: **NOT PERFORMED / NOT CLAIMED AS CERTIFIED**. Link-config protection remains a best-effort safeguard based on the public Gen1Recomp v0.1.75 fingerprint surface.
+- Dedicated two-peer live link battle: **NOT PERFORMED / NOT CLAIMED AS CERTIFIED**. Link-config protection remains a best-effort safeguard based on the public Gen1Recomp fingerprint surface.
 
-The release is not being reclassified as a full modern battle engine. v2.5.1 preserves the audited split-stat/category/Crystal gameplay paths and the completed Modern UI Party/Summary presentation while adding API/diagnostic/link-config infrastructure.
+The release is not being reclassified as a full modern battle engine. v2.5.2 preserves the audited split-stat/category/Crystal gameplay paths and the completed Modern UI Party/Summary presentation while adding API/diagnostic/link-config infrastructure.
 
 ## PASS — Modern UI Party/Summary surgical override contract (current code)
 

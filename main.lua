@@ -1,4 +1,4 @@
--- SPECIAL STAT SPLIT v2.5.1
+-- SPECIAL STAT SPLIT v2.6.0
 -- Release build for Gen1Recomp commit 60cf07fb0a1ffce0ec6d5d0d2f78a921a6d0b7da.
 --
 -- Scope: Generation II Special stat split + Generation IV+ per-move damage categories + integrated move-category battle readout.
@@ -787,7 +787,632 @@ function SplitStats.attach(stats, speciesDef, level, dvs, statExp)
   return stats
 end
 
+-- Gold / Generation II backend -------------------------------------------------
+--
+-- Gold already owns the Generation II special-stat model.  This backend is
+-- intentionally entered before any Gen 1-only require below, so Gold never
+-- installs the Stats/Experience/ItemEffects/SaveData/UI compatibility patches
+-- that Red/Blue/Yellow need.  Its gameplay addition is only the optional
+-- Generation IV+ per-move category selector.
+local GOLD_CATEGORY_PATCH_KEY = "__special_stat_split_gold_category_bridge_v1"
+
+local function activeGeneration()
+  local ok, GameVersion = pcall(require, "src.core.GameVersion")
+  if not ok or type(GameVersion) ~= "table"
+      or type(GameVersion.generation) ~= "function" then
+    return 1
+  end
+  local okGeneration, generation = pcall(GameVersion.generation)
+  if okGeneration then return tonumber(generation) or 1 end
+  return 1
+end
+
+local GOLD_MOVE_KEY_BY_INDEX = {}
+for index, id in pairs(GEN1_MOVE_KEY_BY_INDEX) do GOLD_MOVE_KEY_BY_INDEX[index] = id end
+local GOLD_GEN2_MOVE_KEYS = {
+  [166] = "SKETCH", [167] = "TRIPLE_KICK", [168] = "THIEF",
+  [169] = "SPIDER_WEB", [170] = "MIND_READER", [171] = "NIGHTMARE",
+  [172] = "FLAME_WHEEL", [173] = "SNORE", [174] = "CURSE", [175] = "FLAIL",
+  [176] = "CONVERSION2", [177] = "AEROBLAST", [178] = "COTTON_SPORE",
+  [179] = "REVERSAL", [180] = "SPITE", [181] = "POWDER_SNOW",
+  [182] = "PROTECT", [183] = "MACH_PUNCH", [184] = "SCARY_FACE",
+  [185] = "FAINT_ATTACK", [186] = "SWEET_KISS", [187] = "BELLY_DRUM",
+  [188] = "SLUDGE_BOMB", [189] = "MUD_SLAP", [190] = "OCTAZOOKA",
+  [191] = "SPIKES", [192] = "ZAP_CANNON", [193] = "FORESIGHT",
+  [194] = "DESTINY_BOND", [195] = "PERISH_SONG", [196] = "ICY_WIND",
+  [197] = "DETECT", [198] = "BONE_RUSH", [199] = "LOCK_ON", [200] = "OUTRAGE",
+  [201] = "SANDSTORM", [202] = "GIGA_DRAIN", [203] = "ENDURE", [204] = "CHARM",
+  [205] = "ROLLOUT", [206] = "FALSE_SWIPE", [207] = "SWAGGER",
+  [208] = "MILK_DRINK", [209] = "SPARK", [210] = "FURY_CUTTER",
+  [211] = "STEEL_WING", [212] = "MEAN_LOOK", [213] = "ATTRACT",
+  [214] = "SLEEP_TALK", [215] = "HEAL_BELL", [216] = "RETURN", [217] = "PRESENT",
+  [218] = "FRUSTRATION", [219] = "SAFEGUARD", [220] = "PAIN_SPLIT",
+  [221] = "SACRED_FIRE", [222] = "MAGNITUDE", [223] = "DYNAMIC_PUNCH",
+  [224] = "MEGAHORN", [225] = "DRAGON_BREATH", [226] = "BATON_PASS",
+  [227] = "ENCORE", [228] = "PURSUIT", [229] = "RAPID_SPIN",
+  [230] = "SWEET_SCENT", [231] = "IRON_TAIL", [232] = "METAL_CLAW",
+  [233] = "VITAL_THROW", [234] = "MORNING_SUN", [235] = "SYNTHESIS",
+  [236] = "MOONLIGHT", [237] = "HIDDEN_POWER", [238] = "CROSS_CHOP",
+  [239] = "TWISTER", [240] = "RAIN_DANCE", [241] = "SUNNY_DAY", [242] = "CRUNCH",
+  [243] = "MIRROR_COAT", [244] = "PSYCH_UP", [245] = "EXTREME_SPEED",
+  [246] = "ANCIENT_POWER", [247] = "SHADOW_BALL", [248] = "FUTURE_SIGHT",
+  [249] = "ROCK_SMASH", [250] = "WHIRLPOOL", [251] = "BEAT_UP",
+}
+for index, id in pairs(GOLD_GEN2_MOVE_KEYS) do GOLD_MOVE_KEY_BY_INDEX[index] = id end
+
+local GOLD_MOVE_INDEX_BY_KEY = {}
+for index, id in pairs(GOLD_MOVE_KEY_BY_INDEX) do
+  GOLD_MOVE_INDEX_BY_KEY[normalizeMoveKey(id)] = index
+end
+
+local function goldMoveIndex(id, move)
+  if type(move) == "table" then
+    local direct = tonumber(move.index)
+    if direct then return direct end
+  end
+  local index = GOLD_MOVE_INDEX_BY_KEY[normalizeMoveKey(id)]
+  if index then return index end
+  if type(move) == "table" then
+    return GOLD_MOVE_INDEX_BY_KEY[normalizeMoveKey(move.id)]
+      or GOLD_MOVE_INDEX_BY_KEY[normalizeMoveKey(move.name)]
+  end
+  return nil
+end
+
+local function isCanonicalGoldMove(id, move, index)
+  if not (index and index >= 1 and index <= 251 and type(move) == "table") then
+    return false
+  end
+  local expected = GOLD_MOVE_KEY_BY_INDEX[index]
+  if not expected then return false end
+  local want = normalizeMoveKey(expected)
+  return normalizeMoveKey(id) == want
+      or normalizeMoveKey(move.id) == want
+      or normalizeMoveKey(move.name) == want
+end
+
+local function defineGoldOptions(mod)
+  mod.options:define({
+    {
+      key = "mode",
+      label = "SPECIAL STATS (RESTART)",
+      type = "choice",
+      default = "gen2",
+      choices = {
+        { "VANILLA", "vanilla" },
+        { "GEN II (SP. ATK / SP. DEF)", "gen2" },
+      },
+    },
+    {
+      key = "move_split",
+      label = "MOVE CATEGORIES (RESTART)",
+      type = "choice",
+      default = "gen4",
+      choices = {
+        { "GEN I (BY TYPE)", "gen1" },
+        { "GEN IV+ (BY MOVE)", "gen4" },
+      },
+    },
+    {
+      key = "move_category_readout",
+      label = "MOVE CATEGORY READOUT",
+      type = "toggle",
+      default = true,
+      description = "Show the effective Physical/Special category for the selected move. On Gold, type-based mode uses Gold's native type category and GEN IV+ uses the individual move.",
+    },
+    {
+      key = "modern_ui_override",
+      label = "ModernUI Override",
+      type = "toggle",
+      default = true,
+      description = "Gen 1 compatibility setting. Gold already has native Sp. Atk / Sp. Def presentation, so this setting does not install a Gold stat override.",
+    },
+    {
+      key = "modern_ui_party_stats_layout",
+      label = "ModernUI Party Stats Layout",
+      type = "choice",
+      default = "two_rows",
+      choices = {
+        { "2 ROWS", "two_rows" },
+        { "1 ROW", "one_row" },
+      },
+      description = "Gen 1 Modern UI compatibility setting. It is not applied to Gold's native party/summary stat presentation.",
+    },
+    {
+      key = "modern_ui_battle_wip_override",
+      label = "ModernUI BattleWIP Override",
+      type = "toggle",
+      default = false,
+      description = "Gen 1 Modern UI compatibility setting. It is not applied to Gold's native battle UI.",
+    },
+  })
+end
+
+local function runGoldBackend(mod)
+  defineGoldOptions(mod)
+
+  local Damage = require("src.battle.gen2.Damage")
+  local Battle = require("src.battle.gen2.Battle")
+  local Ai = require("src.battle.gen2.Ai")
+
+  local requestedSpecial = tostring(mod.options:get("mode") or "gen2")
+  local requestedMove = tostring(mod.options:get("move_split") or "gen4")
+  local moveSplitActive = requestedMove == "gen4"
+  local requestedSpecialActive = requestedSpecial == "gen2"
+
+  -- Registry ownership.  Gold's native move TYPE never changes.  GEN IV+ adds
+  -- category metadata to canonical rows; type-based mode removes explicit
+  -- canonical categories so lower-priority modern-category data cannot leak in.
+  local registryChanged, registryConflicts, identitySkips = 0, 0, 0
+  local canonicalSeen = {}
+  if mod.content and mod.content.moves
+      and type(mod.content.moves.each) == "function"
+      and type(mod.content.moves.patch) == "function" then
+    for id, move in mod.content.moves:each() do
+      local index = goldMoveIndex(id, move)
+      local category = index and GEN4_MOVE_CATEGORY_BY_INDEX[index] or nil
+      if category and isCanonicalGoldMove(id, move, index) then
+        canonicalSeen[index] = true
+        if moveSplitActive then
+          if move.category ~= nil and move.category ~= category then
+            registryConflicts = registryConflicts + 1
+          end
+          mod.content.moves:patch(id, { category = category })
+          registryChanged = registryChanged + 1
+        elseif move.category ~= nil and mod.DELETE ~= nil then
+          registryConflicts = registryConflicts + 1
+          mod.content.moves:patch(id, { category = mod.DELETE })
+          registryChanged = registryChanged + 1
+        elseif move.category ~= nil and mod.DELETE == nil
+            and mod.log and type(mod.log.warn) == "function" then
+          mod.log:warn("Gold type-based mode could not clear an explicit canonical move.category because mod.DELETE is unavailable")
+        end
+      elseif index and index >= 1 and index <= 251 and category then
+        identitySkips = identitySkips + 1
+      end
+    end
+  end
+  local canonicalCount = 0
+  for i = 1, 251 do if canonicalSeen[i] then canonicalCount = canonicalCount + 1 end end
+
+  local bridge = rawget(Damage, GOLD_CATEGORY_PATCH_KEY)
+  if not bridge then
+    bridge = {
+      active = false,
+      categoryFor = nil,
+      stack = {},
+      pendingAiCategory = nil,
+      originalIsPhysical = Damage.isPhysical,
+      originalCalc = Damage.calc,
+      originalHitOnce = Battle.hitOnce,
+      originalSmartAiState = Battle.smartAiState,
+      originalAiChoose = Ai.choose,
+    }
+    rawset(Damage, GOLD_CATEGORY_PATCH_KEY, bridge)
+
+    local function withCategory(category, fn, ...)
+      if category ~= "physical" and category ~= "special" then
+        return fn(...)
+      end
+      local stack = bridge.stack
+      stack[#stack + 1] = category
+      local result = pack(pcall(fn, ...))
+      stack[#stack] = nil
+      if not result[1] then error(result[2], 0) end
+      return unpack(result, 2, result.n)
+    end
+    bridge.withCategory = withCategory
+
+    Damage.isPhysical = function(moveType, types)
+      local current = bridge.stack[#bridge.stack]
+      if bridge.active and (current == "physical" or current == "special") then
+        return current == "physical"
+      end
+      return bridge.originalIsPhysical(moveType, types)
+    end
+
+    -- AI expected damage calls Damage.calc directly rather than battle.damage.
+    -- Ai.choose arms exactly one category immediately after resolving each move;
+    -- this wrapper consumes it for that one expected-damage calculation only.
+    Damage.calc = function(opts)
+      local category = bridge.active and bridge.pendingAiCategory or nil
+      if category == "physical" or category == "special" then
+        bridge.pendingAiCategory = nil
+        return bridge.withCategory(category, bridge.originalCalc, opts)
+      end
+      return bridge.originalCalc(opts)
+    end
+
+    Battle.hitOnce = function(self, attacker, defender, def, opts)
+      local category = bridge.active and bridge.categoryFor
+        and bridge.categoryFor(opts and opts.moveId or (def and def.id), def) or nil
+      if category == "physical" or category == "special" then
+        return bridge.withCategory(category, bridge.originalHitOnce,
+          self, attacker, defender, def, opts)
+      end
+      return bridge.originalHitOnce(self, attacker, defender, def, opts)
+    end
+
+    Battle.smartAiState = function(self, ...)
+      local out = bridge.originalSmartAiState(self, ...)
+      if not (bridge.active and bridge.categoryFor and type(out) == "table") then
+        return out
+      end
+      local playerState = self:volatile(self.player)
+      local physical, special = 0, 0
+      for _, id in ipairs(playerState.usedMoves or {}) do
+        local def = self:moveDef(id)
+        if def and (def.power or 0) > 0 then
+          local category = bridge.categoryFor(id, def)
+          if category == "physical" then physical = physical + 1
+          elseif category == "special" then special = special + 1
+          else
+            local types = self.data.type_chart and self.data.type_chart.types
+            if bridge.originalIsPhysical(def.type, types) then
+              physical = physical + 1
+            else
+              special = special + 1
+            end
+          end
+        end
+      end
+      out.playerPhysicalMoves = physical
+      out.playerSpecialMoves = special
+      local lastId = playerState.lastMove
+      local lastDef = lastId and self:moveDef(lastId) or nil
+      if lastDef then
+        local category = bridge.categoryFor(lastId, lastDef)
+        if category == "physical" then out.playerLastMoveSpecial = false
+        elseif category == "special" then out.playerLastMoveSpecial = true end
+      end
+      -- playerSpecialType deliberately remains Gold's native TYPE heuristic.
+      return out
+    end
+
+    Ai.choose = function(context)
+      if not (bridge.active and bridge.categoryFor and type(context) == "table"
+          and type(context.moveDef) == "function") then
+        return bridge.originalAiChoose(context)
+      end
+      local originalMoveDef = context.moveDef
+      local oldPending = bridge.pendingAiCategory
+      context.moveDef = function(id)
+        local def = originalMoveDef(id)
+        local category = def and bridge.categoryFor(id, def) or nil
+        if def and (def.power or 0) > 0
+            and (category == "physical" or category == "special") then
+          bridge.pendingAiCategory = category
+        else
+          bridge.pendingAiCategory = nil
+        end
+        return def
+      end
+      local result = pack(pcall(bridge.originalAiChoose, context))
+      context.moveDef = originalMoveDef
+      bridge.pendingAiCategory = oldPending
+      if not result[1] then error(result[2], 0) end
+      return unpack(result, 2, result.n)
+    end
+  end
+
+  bridge.active = moveSplitActive
+  bridge.categoryFor = function(id, move)
+    if not moveSplitActive or type(move) ~= "table" then return nil end
+    -- Explicit category is authoritative for noncanonical/custom moves too.
+    -- Canonical rows below are owned by this mod's audited 1..251 table.
+    local index = goldMoveIndex(id, move)
+    if index and GEN4_MOVE_CATEGORY_BY_INDEX[index]
+        and isCanonicalGoldMove(id, move, index) then
+      local category = GEN4_MOVE_CATEGORY_BY_INDEX[index]
+      if category == "physical" or category == "special" then return category end
+      return nil
+    end
+    if move.category == "physical" or move.category == "special" then
+      return move.category
+    end
+    return nil
+  end
+  bridge.pendingAiCategory = nil
+  while #bridge.stack > 0 do bridge.stack[#bridge.stack] = nil end
+
+  local effectiveMove = moveSplitActive and "gen4" or "type_based_gen2"
+  local gameplayConfig = {
+    specialStats = requestedSpecialActive and "gen2" or "vanilla",
+    moveCategories = moveSplitActive and "gen4" or "gen1",
+  }
+  local effectiveConfig = {
+    specialStats = "native_gen2",
+    moveCategories = effectiveMove,
+  }
+  local gameplayConfigRevision = ("special=native_gen2;move=%s")
+    :format(moveSplitActive and "gen4" or "type_gen2")
+  local linkConfigRegistered = false
+  if mod.content and mod.content.link_fields
+      and type(mod.content.link_fields.register) == "function" then
+    mod.content.link_fields:register("special_stat_split_rules", {
+      rev = gameplayConfigRevision,
+    })
+    linkConfigRegistered = true
+  end
+
+  -- Gold has no spare TYPE/ field in its four-row move list.  Use the public
+  -- battle.overlay seam instead of replacing BattleState:drawPanel.  The first
+  -- Gold live test showed that a one-letter marker in tile 0 lands on the move
+  -- box border and is effectively unreadable at normal play scale.  The
+  -- selected move therefore gets a clear category tab cut into the TOP border
+  -- of the move box: PHYSICAL / SPECIAL / STATUS.  Non-formula damage classes
+  -- are called out explicitly (FIXED / OHKO / REACTIVE) so the readout never
+  -- implies that Attack/Defense or Sp.Atk/Sp.Def drives damage when it does not.
+  -- Names and PP remain on Gold's four native rows, untouched.
+  local readoutHookInstalled = false
+  local hooks = mod.hooks
+  if hooks and type(hooks.wrap) == "function" then
+    local Chrome, chromeTried
+    local function getChrome()
+      if chromeTried then return Chrome end
+      chromeTried = true
+      local ok, value = pcall(require, "src.ui.gen2.Chrome")
+      if ok and type(value) == "table" and type(value.print) == "function" then
+        Chrome = value
+      end
+      return Chrome
+    end
+
+    local fixedDamageMoves = {
+      sonicboom = true, dragonrage = true, nightshade = true,
+      seismictoss = true, psywave = true, superfang = true,
+    }
+    local ohkoMoves = {
+      guillotine = true, horndrill = true, fissure = true,
+    }
+    local reactiveDamageMoves = { bide = true }
+
+    local function readoutLabel(id, def, data)
+      if type(def) ~= "table" then return nil end
+      local key = normalizeMoveKey(id)
+      if key == "" then key = normalizeMoveKey(def.id) end
+      if key == "" then key = normalizeMoveKey(def.name) end
+      if fixedDamageMoves[key] then return "FIXED" end
+      if ohkoMoves[key] then return "OHKO" end
+      if reactiveDamageMoves[key] then return "REACTIVE" end
+
+      -- STATUS is stable across both settings.  Use the audited canonical table
+      -- first so a type-based Gold boot does not mistake a power-0 status move
+      -- for a damaging move merely because every Gen 2 type is physical/special.
+      local moveIndex = goldMoveIndex(id, def)
+      local audited = moveIndex and GEN4_MOVE_CATEGORY_BY_INDEX[moveIndex] or nil
+      if isCanonicalGoldMove(id, def, moveIndex) and audited == "status" then
+        return "STATUS"
+      end
+      if def.category == "status" then return "STATUS" end
+
+      local category
+      if moveSplitActive then
+        category = bridge.categoryFor(id, def)
+      end
+      if category ~= "physical" and category ~= "special" then
+        local types = data and data.type_chart and data.type_chart.types
+        category = bridge.originalIsPhysical(def.type, types)
+          and "physical" or "special"
+      end
+      return category == "physical" and "PHYSICAL" or "SPECIAL"
+    end
+
+    local function drawReadoutTab(chrome, label)
+      if not (chrome and label) then return false end
+      -- Box is Chrome.box(0, 12, 20, 6).  Keep tile 19 (right border cap)
+      -- intact and anchor the readout tab to a stable left edge so the top
+      -- border looks consistent across all labels.  Live Gold tuning uses the
+      -- PHYSICAL readout as the baseline: one blank tile, eight letters, one
+      -- blank tile.  STATUS and SPECIAL use explicit per-label padding to keep
+      -- the tab visually balanced without drifting back to the far right.
+      local fieldStart, lead, fieldWidth = 8, 1, 10
+      if label == "STATUS" then
+        lead, fieldWidth = 2, 10
+      elseif label == "SPECIAL" then
+        lead, fieldWidth = 1, 10
+      elseif label == "FIXED" then
+        lead, fieldWidth = 2, 10
+      elseif label == "OHKO" then
+        lead, fieldWidth = 3, 10
+      elseif label == "REACTIVE" then
+        lead, fieldWidth = 1, 10
+      elseif label == "PHYSICAL" then
+        lead, fieldWidth = 1, 10
+      end
+      local tx = fieldStart + lead
+      local G = rawget(_G, "love") and love.graphics or nil
+      local oldColor
+      if G and type(G.setColor) == "function" and type(G.rectangle) == "function" then
+        if type(G.getColor) == "function" then oldColor = { G.getColor() } end
+        G.setColor(1, 1, 1, 1)
+        G.rectangle("fill", fieldStart * 8, 12 * 8, fieldWidth * 8, 8)
+      end
+      chrome.print(label, tx, 12)
+      if G and type(G.setColor) == "function" then
+        if oldColor and #oldColor >= 3 then
+          G.setColor(oldColor[1], oldColor[2], oldColor[3], oldColor[4] or 1)
+        else
+          G.setColor(1, 1, 1, 1)
+        end
+      end
+      return true
+    end
+
+    hooks:wrap("battle.overlay", function(next, screen)
+      local result = pack(next(screen))
+      if mod.options:get("move_category_readout") == false
+          or type(screen) ~= "table" or screen.phase ~= "moves" then
+        return unpack(result, 1, result.n)
+      end
+      local index = tonumber(screen.moveIndex)
+      if not index then return unpack(result, 1, result.n) end
+      local moves
+      if type(screen.playerMoves) == "function" then
+        local ok, value = pcall(screen.playerMoves, screen)
+        if ok then moves = value end
+      end
+      if type(moves) ~= "table" then
+        moves = screen.battle and screen.battle.player and screen.battle.player.moves
+      end
+      local selected = type(moves) == "table" and moves[index] or nil
+      if type(selected) ~= "table" then return unpack(result, 1, result.n) end
+      local data = screen.game and screen.game.data
+      local def = data and data.moves and data.moves[selected.id]
+      local label = readoutLabel(selected.id, def, data)
+      local chrome = getChrome()
+      if chrome and label then drawReadoutTab(chrome, label) end
+      return unpack(result, 1, result.n)
+    end, 150)
+    readoutHookInstalled = true
+  elseif mod.log and type(mod.log.warn) == "function" then
+    mod.log:warn("Gold Move Category Readout unavailable: public battle.overlay hook API is missing")
+  end
+
+  mod.exports = mod.exports or {}
+  mod.exports.specialSplitActive = function() return requestedSpecialActive end
+  mod.exports.moveCategorySplitActive = function() return moveSplitActive end
+  mod.exports.moveCategoryReadoutEnabled = function()
+    return mod.options:get("move_category_readout") ~= false
+  end
+  mod.exports.modernUiOverrideEnabled = function()
+    return mod.options:get("modern_ui_override") ~= false
+  end
+  mod.exports.modernUiPartyStatsLayout = function()
+    return tostring(mod.options:get("modern_ui_party_stats_layout") or "two_rows")
+  end
+  mod.exports.modernUiBattleWipOverrideEnabled = function()
+    return mod.options:get("modern_ui_battle_wip_override") == true
+  end
+  mod.exports.modernUiLevelUpOverrideEnabled = mod.exports.modernUiBattleWipOverrideEnabled
+  mod.exports.getMoveCategory = function(move)
+    if not moveSplitActive then return nil end
+    local id = type(move) == "table" and move.id or nil
+    local index = type(move) == "table" and goldMoveIndex(id, move) or tonumber(move)
+    return index and GEN4_MOVE_CATEGORY_BY_INDEX[index] or nil
+  end
+  -- Legacy v1 contract: Gold does not turn the mod-owned Gen II stat table into
+  -- gameplay authority.  Consumers needing native Gold stats should use v2.
+  mod.exports.getSpecialBaseStats = function() return nil end
+  mod.exports.attachSplitStats = function(mon) return mon end
+
+  local function getGameplayConfig()
+    return {
+      specialStats = gameplayConfig.specialStats,
+      moveCategories = gameplayConfig.moveCategories,
+    }
+  end
+  local function getEffectiveGameplayConfig()
+    return {
+      specialStats = effectiveConfig.specialStats,
+      moveCategories = effectiveConfig.moveCategories,
+    }
+  end
+  local function getEffectiveSpecialBaseStats(species)
+    local def = type(species) == "table" and species or nil
+    if not def and mod.content and mod.content.pokemon
+        and type(mod.content.pokemon.get) == "function" then
+      local ok, value = pcall(mod.content.pokemon.get, mod.content.pokemon, species)
+      if ok then def = value end
+    end
+    if type(def) ~= "table" then return nil end
+    local spa = tonumber(def.specialAttack)
+      or (type(def.baseStats) == "table" and tonumber(def.baseStats.specialAttack))
+    local spd = tonumber(def.specialDefense)
+      or (type(def.baseStats) == "table" and tonumber(def.baseStats.specialDefense))
+    if not (spa and spd) then return nil end
+    return { specialAttack = spa, specialDefense = spd }
+  end
+  local function getDiagnostics()
+    local standaloneMoveCategory = type(mod.find) == "function"
+      and mod.find("move_category") ~= nil or false
+    return {
+      modVersion = tostring(mod.version or "2.6.0"),
+      apiVersion = 1,
+      generation = "gold",
+      requested = getGameplayConfig(),
+      effective = getEffectiveGameplayConfig(),
+      gameplay = getGameplayConfig(),
+      gold = {
+        nativeSpecialStats = true,
+        gen1StatBackendInstalled = false,
+        categoryBridgeActive = moveSplitActive,
+        aiCategoryBridgeActive = moveSplitActive,
+        categoryConsumers = {
+          normalDamage = "covered",
+          screens = "covered",
+          damageHistory = "covered",
+          counterMirrorCoat = "covered-via-damage-kind",
+          aiExpectedDamage = "covered",
+          smartAiHistory = "covered",
+          readout = readoutHookInstalled and "covered-public-overlay" or "hook-unavailable",
+        },
+        canonicalMovesSeen = canonicalCount,
+        canonicalMovesExpected = 251,
+        registryRowsChanged = registryChanged,
+        registryConflictsObserved = registryConflicts,
+        identitySkips = identitySkips,
+        readoutHookInstalled = readoutHookInstalled,
+      },
+      link = {
+        affectsLink = true,
+        configRevision = gameplayConfigRevision,
+        configRegistered = linkConfigRegistered,
+      },
+      integrations = {
+        crystal251 = { detected = type(mod.find) == "function" and mod.find("CRYSTAL_251") ~= nil or false, applicable = false },
+        modernUi = { detected = type(mod.find) == "function" and mod.find("gen1_modern_ui") ~= nil or false, applicable = false },
+        standaloneMoveCategory = { detected = standaloneMoveCategory, integratedReadoutEnabled = mod.options:get("move_category_readout") ~= false },
+      },
+    }
+  end
+
+  mod.exports.getGameplayConfig = getGameplayConfig
+  mod.exports.getEffectiveGameplayConfig = getEffectiveGameplayConfig
+  mod.exports.getLinkConfigRevision = function() return gameplayConfigRevision end
+  mod.exports.getDiagnostics = getDiagnostics
+  mod.exports.getEffectiveSpecialBaseStats = getEffectiveSpecialBaseStats
+
+  mod.exports.specialStatSplit = {
+    apiVersion = 1,
+    modVersion = tostring(mod.version or "2.6.0"),
+    specialSplitActive = mod.exports.specialSplitActive,
+    moveCategorySplitActive = mod.exports.moveCategorySplitActive,
+    moveCategoryReadoutEnabled = mod.exports.moveCategoryReadoutEnabled,
+    getMoveCategory = mod.exports.getMoveCategory,
+    getSpecialBaseStats = mod.exports.getSpecialBaseStats,
+    attachSplitStats = mod.exports.attachSplitStats,
+    getGameplayConfig = getGameplayConfig,
+    getLinkConfigRevision = mod.exports.getLinkConfigRevision,
+    getDiagnostics = getDiagnostics,
+  }
+  mod.exports.specialStatSplitV2 = {
+    apiVersion = 2,
+    modVersion = tostring(mod.version or "2.6.0"),
+    generation = function() return "gold" end,
+    getRequestedGameplayConfig = getGameplayConfig,
+    getEffectiveGameplayConfig = getEffectiveGameplayConfig,
+    getEffectiveSpecialBaseStats = getEffectiveSpecialBaseStats,
+    getMoveCategory = mod.exports.getMoveCategory,
+    attachSplitStats = mod.exports.attachSplitStats,
+    getDiagnostics = getDiagnostics,
+  }
+
+  if mod.log and type(mod.log.info) == "function" then
+    mod.log:info(("Special Stat Split Gold backend: special requested=%s effective=native_gen2; move requested=%s effective=%s; canonical moves=%d/251; identity skips=%d; category bridge=%s; link=%s")
+      :format(requestedSpecial, requestedMove, effectiveMove, canonicalCount,
+        identitySkips, moveSplitActive and "active" or "native-type",
+        linkConfigRegistered and gameplayConfigRevision or "unregistered"))
+    if canonicalCount ~= 251 then
+      mod.log:info("Gold move identity audit is incomplete at entry time; diagnostics will report the observed registry count. Do not claim Gold release compatibility until runtime data merge/live tests confirm 251/251.")
+    end
+  end
+end
+
 return function(mod)
+  if activeGeneration() == 2 then
+    return runGoldBackend(mod)
+  end
   local Stats = require("src.pokemon.Stats")
   local Damage = require("src.battle.Damage")
   local Experience = require("src.battle.Experience")
@@ -874,7 +1499,7 @@ return function(mod)
   local moveSplitActive = tostring(mod.options:get("move_split") or "gen4") == "gen4"
 
   -- Link battles are lockstep simulations, so presentation-only differences may
-  -- safely diverge but gameplay options may not. Gen1Recomp v0.1.75 includes
+  -- safely diverge but gameplay options may not. Gen1Recomp has included since v0.1.75
   -- link_fields.rev in its public link fingerprint. Register only a deterministic
   -- revision string here: no handshake/fingerprint hook is replaced or wrapped.
   local gameplayConfig = {
@@ -2087,7 +2712,7 @@ return function(mod)
   -- presentation unless the player explicitly opts in.
   --
   -- Modern UI 0.8.x has a dedicated battle LEVEL UP card that is not a
-  -- generic presenter/adaptable screen. On Gen1Recomp v0.1.75 it suppresses
+  -- generic presenter/adaptable screen. On the audited v0.1.75 baseline it suppresses
   -- the native BattleState.StatBox earlier than screen.render_visible: its
   -- public ui.state.decorate hook replaces the child state's draw method and
   -- later paints a four-row ATTACK/DEFENSE/SPEED/SPECIAL card from render.hud.
@@ -2442,7 +3067,7 @@ return function(mod)
     local standaloneMoveCategory = type(mod.find) == "function"
       and mod.find("move_category") ~= nil or false
     return {
-      modVersion = tostring(mod.version or "2.5.1"),
+      modVersion = tostring(mod.version or "2.6.0"),
       apiVersion = 1,
       gameplay = getGameplayConfig(),
       link = {
@@ -2477,7 +3102,7 @@ return function(mod)
 
   mod.exports.specialStatSplit = {
     apiVersion = 1,
-    modVersion = tostring(mod.version or "2.5.1"),
+    modVersion = tostring(mod.version or "2.6.0"),
     specialSplitActive = mod.exports.specialSplitActive,
     moveCategorySplitActive = mod.exports.moveCategorySplitActive,
     moveCategoryReadoutEnabled = mod.exports.moveCategoryReadoutEnabled,

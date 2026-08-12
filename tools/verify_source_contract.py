@@ -12,13 +12,14 @@ MAIN = (ROOT / 'main.lua').read_text(encoding='utf-8')
 MANIFEST = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
 
 assert MANIFEST['id'] == 'special_stat_split'
-assert MANIFEST['version'] == '2.5.1'
+assert MANIFEST['version'] == '2.6.0'
 assert 'ModernUI Override' in MAIN
 assert 'modern_ui_override' in MAIN
 assert 'ModernUI BattleWIP Override' in MAIN
 assert 'modern_ui_battle_wip_override' in MAIN
 assert MANIFEST['api'] == 2
-assert MANIFEST['game_version'] == '>=0.1.75 <0.1.76'
+assert MANIFEST.get('games') == ['gen1', 'gold']
+assert 'game_version' not in MANIFEST
 assert 'pokedex_plus' in MANIFEST.get('optional_dependencies', [])
 assert 'CRYSTAL_251' in MANIFEST.get('optional_dependencies', [])
 assert 'gen1_modern_ui' in MANIFEST.get('optional_dependencies', [])

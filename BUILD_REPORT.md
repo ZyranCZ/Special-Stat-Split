@@ -1,10 +1,20 @@
-# Build report — v2.5.1
+# Build report — v2.6.0
 
-## 2.5.1 build baseline
+
+## 2.6.0 Gold feature release
+
+- Adds the generation-isolated Pokémon Gold backend while preserving the existing Gen 1 backend.
+- Final manifest targets `gen1` and `gold` only.
+- Gold keeps native Sp. Atk/Sp. Def mechanics and gains optional GEN IV+ per-move category routing.
+- Gold selected-move readout uses the public `battle.overlay` seam with normalized top-border title spacing.
+- User live verification on Gold v0.1.78 covers boot/battle entry, native split-stat Summary presentation and the final readout.
+- Complete bundled regression suite passes before and after packaging.
+
+## 2.5.2 build baseline
 
 The sole source is the final assistant-delivered `special_stat_split_v2.5.0.zip`, SHA-256 `599f73249c8b26922dc94ef78b3d3ce5469acbff51457b5e4a69fd84f04df6a7`. Before editing, the package was freshly extracted and verified as `2.5.0` in both `manifest.json` and the `main.lua` header. No older package was used.
 
-This 2.5.1 release is a metadata-only hotfix over the approved 2.5.0 build: it changes the package identity to 2.5.1 and sets `experimental=false` for the whole mod. The versioned API v1, diagnostics, deterministic link gameplay revision, split-stat formulas, move-category datasets, save contract, Crystal 251 behavior and Modern UI renderer geometry are otherwise unchanged. The optional Modern UI BattleWIP bridge remains explicitly WIP/experimental as a feature, without classifying the whole mod as experimental.
+This 2.5.2 release changes compatibility policy rather than gameplay: the manifest no longer declares a `game_version` release range, so future Gen1Recomp version-number changes do not disable the mod before it can run. Mod API `2` and capability checks remain the structural safety contracts. `experimental=false` remains mandatory. Gameplay, datasets, save behavior, Crystal 251 behavior, Modern UI geometry and link-config logic are unchanged from 2.5.1.
 
 ## Inherited 2.4.2 release contents
 

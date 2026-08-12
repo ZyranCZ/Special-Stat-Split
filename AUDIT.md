@@ -1,7 +1,7 @@
-# Deep audit — v2.5.1
+# Deep audit — v2.5.2
 
 
-## 2.5.1 architecture delta
+## 2.5.2 architecture delta
 
 The executable delta from final 2.4.2 is intentionally narrow: a public API v1 façade, diagnostics, and one `link_fields.rev` registration derived only from `mode` and `move_split`. Existing stat math, move routing, save handling and UI rendering paths are not reimplemented. Legacy exports remain available. The engine's link fingerprint hook is not replaced.
 

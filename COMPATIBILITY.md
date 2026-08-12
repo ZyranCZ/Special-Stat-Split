@@ -1,6 +1,31 @@
-# Compatibility and collision audit — v2.5.1
+# Compatibility and collision audit — v2.6.0
 
-Target: Gen1Recomp v0.1.75 / `60cf07fb0a1ffce0ec6d5d0d2f78a921a6d0b7da`.
+Last fully frozen audit baseline: Gen1Recomp v0.1.75 / `60cf07fb0a1ffce0ec6d5d0d2f78a921a6d0b7da`. This is not a runtime version gate.
+
+## Generation boundary: Red / Blue / Yellow vs Gold
+
+The Gold port is additive. The entry chunk resolves the active generation before loading any historical Gen 1 battle/stat/save/UI internals. Generation 1 continues into the established v2.5.2-compatible backend; Generation 2 enters a separate Gold backend.
+
+### Red / Blue / Yellow
+
+All existing v2.5.2 compatibility behavior remains authoritative: mod-owned split-stat emulation, Crystal 251 interoperability, Gen1 Modern UI shims, Gen 1 save stripping/restoration and the existing link revision contract.
+
+### Gold
+
+Gold's native split-stat model is authoritative. The mod does **not** install its Gen 1 `Stats`, EXP, X SPECIAL, move-effect, Transform, save-stripper, Summary, level-up, Crystal-private-damage or Gen1 Modern UI stat patches. The only battle-math extension is optional per-move category selection.
+
+For GEN IV+ mode, the narrow Gold bridge scopes a category around the engine's own damage calculation; it does not copy the Gold damage formula and does not rewrite move type. Current-source auditing found category consumers in ordinary damage/screen routing, stored damage kind, expected-damage AI and smart-AI move history; these are covered by the shared resolver described in `GOLD_CATEGORY_CONSUMERS.md`.
+
+The Gold readout uses the public `battle.overlay` hook and does not replace `BattleState:drawPanel`. It paints a selected-move category title into the move box top border while leaving native move rows, PP, cursor and SELECT reordering intact.
+
+Version **2.6.0** opts into **Gold only** in addition to Gen 1 (`games: ["gen1", "gold"]`). Gold boot/battle entry, native Summary split-stat presentation and the final category readout have live verification on v0.1.78; Silver/Crystal remain outside the declared support set.
+
+## Gen1Recomp engine-version policy
+
+There is **no `game_version` pin** in the manifest. Special Stat Split intentionally attempts to load on future Gen1Recomp releases instead of refusing them because the release number changed. Compatibility is evaluated by the actual API/capabilities used by each integration. If a future engine release genuinely changes one of those surfaces, that concrete regression can then be fixed; release-number churn alone is not a blocker.
+
+The manifest keeps `api = 2`. This is the Mod API major required by the code and is intentionally different from pinning a Gen1Recomp engine release. The whole mod is always `experimental = false`.
+
 
 ## Standalone Move Category Readout v1.0.1
 
@@ -95,7 +120,7 @@ The manifest keeps `affects_link=true`. Since 2.5.0 the mod additionally registe
 
 `link_fields.rev` is part of Gen1Recomp's own link fingerprint, so different restart-required gameplay settings are expected to produce a pre-battle fingerprint mismatch even when both peers run the same Special Stat Split version. The mod does not hook or replace the engine fingerprint implementation.
 
-Move Category Readout, ModernUI Override, Party layout and BattleWIP presentation choices are excluded because they do not alter battle math. Static/runtime contracts prove the four gameplay revisions are unique. Dedicated two-peer live certification was not performed and is not claimed; the retained best-effort matrix is documented in `OPTIONAL_LINK_QA_2.5.1.md`.
+Move Category Readout, ModernUI Override, Party layout and BattleWIP presentation choices are excluded because they do not alter battle math. Static/runtime contracts prove the four gameplay revisions are unique. Dedicated two-peer live certification was not performed and is not claimed; the retained best-effort matrix is documented in `OPTIONAL_LINK_QA_2.5.2.md`.
 
 ## Gen1 Modern UI level-up card
 

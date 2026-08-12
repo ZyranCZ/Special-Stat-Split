@@ -1,10 +1,25 @@
-# Manual smoke test — v2.5.1
+# Manual smoke test — v2.6.0
 
-Target engine: **Gen1Recomp v0.1.75**, commit `60cf07fb0a1ffce0ec6d5d0d2f78a921a6d0b7da`.
+Frozen integration fixture: **Gen1Recomp v0.1.75**, commit `60cf07fb0a1ffce0ec6d5d0d2f78a921a6d0b7da`. Runtime compatibility is intentionally not pinned to this release.
 
 Automated tests cover the full stat/category tables, Gen IV–IX parity, collision guards, gameplay-config link revisions, public API/diagnostics contracts, source guards and operand routing. Manual testing should focus on real-game integration, third-party combinations and the real two-peer handshake.
 
-The final 2.5.1 promotion uses the user-confirmed in-game functional/UI smoke. Dedicated multiplayer certification is optional rather than a release gate; see `OPTIONAL_LINK_QA_2.5.1.md` if it is ever tested later.
+The final 2.6.0 release includes user-confirmed Gold boot/battle, Summary and category-readout smoke in addition to the inherited Gen 1 UI smoke. Dedicated multiplayer certification is optional rather than a release gate; see `OPTIONAL_LINK_QA_2.5.2.md` if it is ever tested later.
+
+## Gold / Gen 2
+
+Automated Gold contracts are now part of `bash tools/run_all.sh`. They are **not** a substitute for the real Gold runtime matrix. Gold is enabled in the final `manifest.json`; the following matrix remains useful for extended regression testing on current Gold-capable Gen1Recomp builds:
+
+1. Boot with requested SPECIAL STATS = VANILLA and = GEN II; both must retain native Gold Sp. Atk / Sp. Def with no duplicate Summary/level-up UI.
+2. In type-based mode, verify native Gold categories (e.g. Fire Punch follows FIRE/Special; Shadow Ball follows GHOST/Physical).
+3. In GEN IV+ mode, verify both category-flip directions with deliberately asymmetric Attack/Sp. Atk and Defense/Sp. Def fixtures (Fire Punch -> Physical, Shadow Ball -> Special are suitable sentinels).
+4. Verify Reflect / Light Screen, Counter / Mirror Coat, AI choice, crit, STAB, effectiveness, weather and held type boosters remain Gold-native except for the selected stat pair.
+5. Verify Growth, Amnesia, Psychic's Sp. Def drop, X SPECIAL, Transform, Haze and Light Screen occur exactly once with native Gold behavior.
+6. Save, restart and reload; DVs, Stat Exp, Sp. Atk, Sp. Def, moves and mod options must round-trip with no Gen 1 save stripping.
+7. In FIGHT, the selected damaging move should show `P` or `S` immediately left of the cursor. Status/power-0 moves show no marker; SELECT move-reordering must retain its native `▷` marker.
+8. Confirm native Gold Party/Summary/level-up screens are otherwise visually unchanged.
+
+Current verified and still-unverified Gold edges are recorded in `GOLD_PORT_STATUS.md`.
 
 ## Integrated Move Category Readout
 
@@ -123,3 +138,16 @@ With ModernUI Override ON and split stats active, verify both Party-only choices
 - `2 ROWS` (default): `ATTACK / DEFENSE / SPEED` then `SPEC. ATTACK / SPEC. DEFENSE`.
 - `1 ROW`: `ATK / DEF / SPD / SPATK / SPDEF` on one line.
 Summary must remain unchanged in both cases.
+
+## Gold live readout check
+
+In a Gold battle, open **FIGHT** and move the cursor between moves. The top border of the move box should show the selected move's effective class:
+
+- `PHYSICAL` — uses Attack / Defense for normal formula damage.
+- `SPECIAL` — uses Sp. Atk / Sp. Def for normal formula damage.
+- `STATUS` — non-damaging status move.
+- `FIXED` — fixed/non-formula damage such as Seismic Toss, Night Shade, Dragon Rage, Sonic Boom, Psywave or Super Fang.
+- `OHKO` — Guillotine, Horn Drill or Fissure.
+- `REACTIVE` — Bide.
+
+The label must update immediately as the cursor moves and must remain visible during SELECT move reordering. Move names and PP must not shift or be overwritten.

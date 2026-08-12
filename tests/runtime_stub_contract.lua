@@ -255,7 +255,7 @@ local optionReadout = READOUT_MODE ~= 'off'
 local registeredModernUiAdapter
 local specialExports = {}
 local specialHandle = {
-  id = 'special_stat_split', version = '2.5.1', exports = specialExports,
+  id = 'special_stat_split', version = '2.6.0', exports = specialExports,
 }
 local realModernUiMod
 local modernUiStub
@@ -328,7 +328,7 @@ function specialHooks:wrap(name, fn, priority)
 end
 local mod = {
   id = 'special_stat_split',
-  version = '2.5.1',
+  version = '2.6.0',
   hooks = specialHooks,
   options = {
     define = function(_, schema) specialOptionSchema = schema end,
@@ -492,7 +492,7 @@ expect(type(mod.exports.specialStatSplit) == 'table',
   'versioned inter-mod API table exists')
 expect(mod.exports.specialStatSplit.apiVersion == 1,
   'versioned inter-mod API reports apiVersion 1')
-expect(mod.exports.specialStatSplit.modVersion == '2.5.1',
+expect(mod.exports.specialStatSplit.modVersion == '2.6.0',
   'versioned inter-mod API reports release version')
 expect(mod.exports.specialStatSplit.specialSplitActive == mod.exports.specialSplitActive
   and mod.exports.specialStatSplit.moveCategorySplitActive == mod.exports.moveCategorySplitActive
@@ -503,7 +503,7 @@ expect(mod.exports.specialStatSplit.specialSplitActive == mod.exports.specialSpl
 expect(type(mod.exports.getDiagnostics) == 'function',
   'diagnostics export exists')
 local diagnostics = mod.exports.getDiagnostics()
-expect(diagnostics.apiVersion == 1 and diagnostics.modVersion == '2.5.1',
+expect(diagnostics.apiVersion == 1 and diagnostics.modVersion == '2.6.0',
   'diagnostics identify API/build version')
 expect(diagnostics.link.configRegistered == true
   and diagnostics.link.configRevision == expectedLinkRevision,

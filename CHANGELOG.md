@@ -1,5 +1,29 @@
 # Changelog
 
+## 2.6.0 — Gold / Gen 2 support
+
+- Adds an early generation boundary so Gold never initializes the Gen 1 stat/damage/EXP/item-effect/save/UI compatibility backend.
+- Leaves Gold's native Sp. Atk / Sp. Def model, Special DV/Stat Exp, X SPECIAL, Growth/Amnesia/Psychic/Transform, save schema, Summary and level-up presentation untouched.
+- Adds Gold-native semantics for the existing settings: requested Special mode is a no-op over native Gen II stats; type-based move mode delegates to Gold's native type categories.
+- Extends canonical move identity coverage to Gold move slots 166..251 **without changing the original Gen 1 1..165 identity table**.
+- Adds a scoped, error-safe Gold category bridge for GEN IV+ per-move damage categories while preserving native move type and native Gold damage formula.
+- Covers current Gold category consumers used by normal damage, Reflect/Light Screen selection, stored damage kind / Counter-Mirror Coat semantics, expected-damage AI and smart-AI move history.
+- Gold live-test readout revision: the original one-letter gutter marker was not visibly useful in the real v0.1.78 battle UI. The public `battle.overlay` seam now draws a clear selected-move title tab in the move box border: `PHYSICAL`, `SPECIAL`, or `STATUS`, with `FIXED`, `OHKO`, and `REACTIVE` for non-standard damage classes. Native move names, PP rows, cursor and SELECT reordering remain untouched.
+- Adds generation-aware API v2/effective configuration while preserving API v1.
+- Gold link revision uses effective `special=native_gen2` to avoid false mismatches between requested VANILLA/GEN II settings.
+- Adds Gold static/headless contracts to `tools/run_all.sh`, including both category-flip directions, collision guards, error restoration, AI consistency, readout behavior and type-based hot reload.
+- Releases Gold support with `games: ["gen1", "gold"]`; Silver/Crystal are deliberately not claimed.
+- Live Gold v0.1.78 verification covers boot, normal battle entry, native split-stat Summary presentation and the final top-border category readout.
+- Final readout spacing uses a stable 10-tile title field: ` PHYSICAL `, `  STATUS  ` and ` SPECIAL  `; other special damage labels use the same total field width.
+
+## 2.5.2
+
+- Removes the manifest `game_version` release-number pin entirely. Gen1Recomp updates no longer disable the mod merely because the engine version changed.
+- Forward-compatibility policy is now **attempt first, fix only when actually broken**: the mod relies on API/capability checks for the specific surfaces it uses instead of an engine release allowlist.
+- Keeps `api = 2` because that is the structural Mod API contract, not an engine release-number pin.
+- Keeps `experimental = false`; test/WIP status never opts the whole mod into Gen1Recomp's Experimental gate.
+- No stat formulas, battle math, move categories, Crystal 251 behavior, Modern UI geometry, save behavior, or link-config logic changed from 2.5.1.
+
 ## 2.5.1
 
 - Source baseline: assistant-delivered final `special_stat_split_v2.5.0.zip` (SHA-256 `599f73249c8b26922dc94ef78b3d3ce5469acbff51457b5e4a69fd84f04df6a7`).

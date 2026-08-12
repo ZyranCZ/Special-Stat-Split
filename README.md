@@ -1,6 +1,6 @@
 # Special Stat Split
 
-**Special Stat Split 2.5.1** combines the stat split, per-move category mechanics, and the former standalone Move Category readout in one Gen1Recomp mod:
+**Special Stat Split 2.6.0** combines the stat split, per-move category mechanics, and the former standalone Move Category readout in one Gen1Recomp mod:
 
 1. **Generation II Special-stat split** — the original calculated `SPECIAL` becomes separate **Sp. Atk** and **Sp. Def**.
 2. **Modern per-move damage categories** — original moves can use the Generation IV+ **Physical / Special / Status** category of the individual move instead of Generation I's category-by-elemental-type rule.
@@ -10,10 +10,26 @@ A FIRE move is therefore not automatically special in modern mode: **Fire Punch 
 
 > **Save options and fully restart Gen1Recomp after changing either gameplay mode.**
 
-## 2.5.1 release hotfix
+## Pokémon Gold / Gen 2 support
 
-- The mod is now correctly classified as a normal release (`experimental=false`).
-- No gameplay or UI behavior changed from 2.5.0.
+Version **2.6.0** adds a **generation-isolated Gold backend** and declares `games: ["gen1", "gold"]`. Red/Blue/Yellow keep the established Gen 1 backend while Pokémon Gold uses its native Generation II stat systems plus this mod's optional per-move category layer.
+
+On **Red / Blue / Yellow**, behavior remains the established v2.5.2 contract. On **Pokémon Gold**:
+
+- Gold's native **Sp. Atk / Sp. Def**, shared Special DV, shared Special Stat Exp, native X SPECIAL, Growth/Amnesia/Psychic effects, Transform, save model, Summary and level-up presentation are left untouched.
+- `SPECIAL STATS (RESTART)` remains a shared saved option, but both of its requested values are mechanically **native Gen II** on Gold. The option still matters when the same mod is loaded under Gen 1.
+- `GEN I (BY TYPE)` means **Gold's native type-based category model**, including Gold's own Dark/Steel types and move types. It does not emulate Red's type table.
+- `GEN IV+ (BY MOVE)` changes only which offensive/defensive stat pair a damaging move uses. Move type remains untouched, so Gold still owns STAB, effectiveness, weather, held-item modifiers, critical hits and damage variation.
+- The Gold move-select screen has no spare `TYPE/` field. The first live build tried a one-letter gutter marker, but the real v0.1.78 layout showed that it lands on the box edge and is not useful in play. The readout now uses the public `battle.overlay` seam to cut a clear title into the move box's top border for the **currently selected move**: **PHYSICAL**, **SPECIAL**, or **STATUS**. Non-formula damage is labeled **FIXED**, **OHKO**, or **REACTIVE** instead of pretending it uses Attack/Defense or Sp. Atk/Sp. Def. Move names, PP, cursor and SELECT reordering remain native Gold.
+- Gen1 Modern UI and CRYSTAL 251 compatibility shims are treated as **Gen 1-only** on Gold; native Gold systems are not patched through those paths.
+
+Gold boot, battle entry, native split-stat Summary presentation and the final selected-move category readout were live-tested on Gen1Recomp/Gold v0.1.78. The bundled automated suite additionally covers category routing, AI, Counter/Mirror Coat basis, type-based fallback, API/link semantics and Gen 1 regressions. Remaining edge-case/live matrices are documented in `GOLD_PORT_STATUS.md`; Silver/Crystal are not claimed by this release.
+
+## 2.6.0 compatibility policy
+
+Special Stat Split no longer pins a specific Gen1Recomp release in `manifest.json`. New Gen1Recomp releases are allowed to load the mod automatically; a version-number change by itself is **not** treated as incompatibility. The policy is now **try to run first, update only if a real breakage is observed**.
+
+The manifest still declares Mod API `2`, because that is the structural API contract the mod actually uses. `experimental` is permanently `false`; WIP status of an optional integration never makes the whole mod Experimental.
 
 ## New in 2.5.0
 
@@ -23,13 +39,13 @@ A FIRE move is therefore not automatically special in modern mode: **Fire Punch 
 - Presentation-only settings are deliberately excluded from the gameplay revision.
 - Core stat math, move-category data, save behavior and the existing Modern UI renderers are inherited unchanged from 2.4.2.
 
-This is the **2.5.1 release**. The in-game single-player/UI paths were user-smoke-tested successfully. Dedicated two-peer link certification was intentionally not made a release blocker; the gameplay-option fingerprinting remains a best-effort compatibility safeguard built on Gen1Recomp v0.1.75's public `link_fields.rev` fingerprint surface.
+This is the **2.6.0 release**. The in-game single-player/UI paths were user-smoke-tested successfully. Dedicated two-peer link certification is not a release blocker; gameplay-option fingerprinting remains a best-effort safeguard through Gen1Recomp's public `link_fields.rev` fingerprint surface.
 
 ## Target
 
-Frozen target: **Gen1Recomp v0.1.75**, commit `60cf07fb0a1ffce0ec6d5d0d2f78a921a6d0b7da`.
+Last fully frozen integration baseline: **Gen1Recomp v0.1.75**, commit `60cf07fb0a1ffce0ec6d5d0d2f78a921a6d0b7da`. This is an audit baseline, **not** a manifest compatibility pin.
 
-The manifest deliberately targets `>=0.1.75 <0.1.76` because the integration contracts and upstream file hashes are frozen to that engine version.
+The manifest deliberately contains **no `game_version` field**. New engine releases are allowed to attempt loading; the frozen baseline only records the last exact upstream integration snapshot used by the bundled historical contracts.
 
 ## Install / test
 
@@ -178,7 +194,7 @@ The old standalone Move Category repository is **not** used as the update source
 
 ## Verification status
 
-The current build passes the complete bundled reference, category, generation-audit, source-contract and runtime-stub suites, including a regression test where Crystal deliberately exports wrong equal values for Togetic and Espeon. The canonical table still wins. The exact Gen1Recomp v0.1.75 frozen-upstream integration suite was also rerun for this build and passed.
+The current build passes the complete bundled reference, category, generation-audit, source-contract and runtime-stub suites, including a regression test where Crystal deliberately exports wrong equal values for Togetic and Espeon. The canonical table still wins. The bundled exact v0.1.75 frozen-upstream suite remains the last complete frozen integration baseline. The release is not restricted to that engine version.
 
 A dedicated real two-peer link battle and broad live compatibility pass with every third-party move overhaul remain manual tests. Crystal 251 compatibility is covered by source audit plus a dedicated headless runtime contract, but an imported-ROM in-game smoke is still recommended.
 
