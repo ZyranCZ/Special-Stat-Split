@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.6.3 — Gen 3 UI footer polish
+
+- Refines the live-verified Gen 3 UI category alignment and antialiasing for the 2.6.3 release.
+- Gen 3 UI category labels now inherit the visible move-type baseline and subpixel phase instead of the helper `TYPE` pass, keeping **PHYSICAL / SPECIAL / STATUS** vertically aligned with the foreign footer.
+- Replaces the older hard 1-pixel bold overdraw with a smoother half-pixel semibold shoulder.
+- Gold / Generation II uses a slightly stronger **70% alpha** shoulder for the requested extra boldness; Red / Blue / Yellow deliberately keep the accepted **55% alpha** weight.
+- No battle math, move-category routing, save behavior, link fingerprinting, native UI behavior, or declared game support changes.
+
 ## 2.6.2 — Gen 3 UI move-category compatibility for Gen 1 + Gold
 
 - Finalizes the live-tested Gen 3 Inspired UI move-selection integration on **Red / Blue / Yellow and Pokémon Gold**.

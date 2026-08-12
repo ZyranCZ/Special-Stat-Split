@@ -1,9 +1,9 @@
-# Verification report — v2.6.2
+# Verification report — v2.6.3
 
-## 2.6.2 final Gen 3 UI compatibility gate — PASS
+## 2.6.3 final Gen 3 UI compatibility gate — PASS
 
 - Accepted promotion baseline SHA-256: `533242255ab1204ab93732213eb9275794b2204a71e6de9bed148e109a2fce4c`.
-- Manifest identity is `2.6.2`, `experimental = false`, `games = ["gen1", "gold"]`, with no engine release-number gate.
+- Manifest identity is `2.6.3`, `experimental = false`, `games = ["gen1", "gold"]`, with no engine release-number gate.
 - Gen 3 UI inline move-category presentation is **LIVE PASS on Gold** and **LIVE PASS on Gen 1**.
 - Final visible style uses the foreign footer's observed font/colour/transform, integer-pixel placement and a 1-pixel two-pass overdraw.
 - Native Gen 1 readout remains the established `PHYS/` / `SPEC/` path when Gen 3 UI is absent.

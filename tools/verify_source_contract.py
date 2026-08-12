@@ -12,7 +12,7 @@ MAIN = (ROOT / 'main.lua').read_text(encoding='utf-8')
 MANIFEST = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
 
 assert MANIFEST['id'] == 'special_stat_split'
-assert MANIFEST['version'] == '2.6.2'
+assert MANIFEST['version'] == '2.6.3'
 assert 'ModernUI Override' in MAIN
 assert 'modern_ui_override' in MAIN
 assert 'ModernUI BattleWIP Override' in MAIN

@@ -1,4 +1,4 @@
-# Special Stat Split v2.6.2 — Gold / Gen 2 status
+# Special Stat Split v2.6.3 — Gold / Gen 2 status
 
 Port source baseline: Special Stat Split **2.5.2**, authoritative ZIP SHA-256 `0c61c8ae4eb537f5f45e586a4d965c4f5ae333e41289403e72144e86870b5e16`.
 
@@ -53,7 +53,7 @@ Current upstream UI re-audit anchor: `bryanthaboi/gen1recomp` `dev` commit `01aa
 | Gold link play | NOT APPLICABLE / FUTURE until current upstream capability is explicitly confirmed and tested |
 | `games` Gold manifest opt-in | VERIFIED | final release declares `games: ["gen1", "gold"]`; Silver/Crystal are not claimed |
 | Version bump to 2.6.0 | VERIFIED | Gold feature release identity applied after user live UI approval |
-| 2.6.2 Gen 3 UI compatibility | LIVE PASS | inline foreign-UI presentation confirmed in real Gold; final font/colour/pixel alignment/bold weight accepted |
+| 2.6.3 Gen 3 UI compatibility | LIVE PASS | inline foreign-UI presentation confirmed in real Gold; final font/colour/pixel alignment/bold weight accepted |
 
 ## Current automated command
 
@@ -70,8 +70,8 @@ The Gold contract covers Fire Punch and Shadow Ball opposite-direction category 
 
 ## Release decision
 
-**Special Stat Split 2.6.2 is the live-verified Gold release baseline.** Native Gold mechanics remain inherited from 2.6.0, while the Gen 3 Inspired UI inline move-category row is now LIVE PASS. Silver/Crystal remain undeclared.
-## 2.6.2 Gen 3 UI integration
+**Special Stat Split 2.6.3 is the live-verified Gold release baseline.** Native Gold mechanics remain inherited from 2.6.0, while the Gen 3 Inspired UI inline move-category row is now LIVE PASS. Silver/Crystal remain undeclared.
+## 2.6.3 Gen 3 UI integration
 
 - Gen 3 Inspired UI Overhaul v1.4.0 release metadata / Gold support: STATICALLY VERIFIED via GitHub release.
 - Optional mod id `gen3_battle_ui`: inherited from the committed prior package; used as capability-detection key.

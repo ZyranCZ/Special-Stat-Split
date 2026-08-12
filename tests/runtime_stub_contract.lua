@@ -255,7 +255,7 @@ local optionReadout = READOUT_MODE ~= 'off'
 local registeredModernUiAdapter
 local specialExports = {}
 local specialHandle = {
-  id = 'special_stat_split', version = '2.6.2', exports = specialExports,
+  id = 'special_stat_split', version = '2.6.3', exports = specialExports,
 }
 local realModernUiMod
 local modernUiStub
@@ -338,7 +338,7 @@ function specialHooks:wrap(name, fn, priority)
 end
 local mod = {
   id = 'special_stat_split',
-  version = '2.6.2',
+  version = '2.6.3',
   hooks = specialHooks,
   options = {
     define = function(_, schema) specialOptionSchema = schema end,
@@ -502,7 +502,7 @@ expect(type(mod.exports.specialStatSplit) == 'table',
   'versioned inter-mod API table exists')
 expect(mod.exports.specialStatSplit.apiVersion == 1,
   'versioned inter-mod API reports apiVersion 1')
-expect(mod.exports.specialStatSplit.modVersion == '2.6.2',
+expect(mod.exports.specialStatSplit.modVersion == '2.6.3',
   'versioned inter-mod API reports release version')
 expect(mod.exports.specialStatSplit.specialSplitActive == mod.exports.specialSplitActive
   and mod.exports.specialStatSplit.moveCategorySplitActive == mod.exports.moveCategorySplitActive
@@ -513,7 +513,7 @@ expect(mod.exports.specialStatSplit.specialSplitActive == mod.exports.specialSpl
 expect(type(mod.exports.getDiagnostics) == 'function',
   'diagnostics export exists')
 local diagnostics = mod.exports.getDiagnostics()
-expect(diagnostics.apiVersion == 1 and diagnostics.modVersion == '2.6.2',
+expect(diagnostics.apiVersion == 1 and diagnostics.modVersion == '2.6.3',
   'diagnostics identify API/build version')
 expect(diagnostics.link.configRegistered == true
   and diagnostics.link.configRevision == expectedLinkRevision,
@@ -584,8 +584,8 @@ local expectedFull = optionMoveMode == 'gen4' and 'PHYSICAL' or 'SPECIAL'
 local fullCount = 0
 for _, value in ipairs(hudPrintCalls) do if value == expectedFull then fullCount = fullCount + 1 end end
 if optionReadout then
-  expect(fullCount == 3,
-    'GEN 1 Gen 3 UI footer draws the full category with TEST K bold overdraw')
+  expect(fullCount == 2,
+    'GEN 1 Gen 3 UI footer draws the full category with softened semibold overdraw')
 else
   expect(fullCount == 0,
     'GEN 1 Gen 3 UI footer respects MOVE CATEGORY READOUT OFF')
@@ -602,7 +602,7 @@ gen1Gen3Hud.fn(function()
 end, {data={moves=moveRecords}}, {})
 local statusCount = 0
 for _, value in ipairs(hudPrintCalls) do if value == 'STATUS' then statusCount = statusCount + 1 end end
-expect((optionReadout and statusCount == 3) or ((not optionReadout) and statusCount == 0),
+expect((optionReadout and statusCount == 2) or ((not optionReadout) and statusCount == 0),
   'GEN 1 Gen 3 UI footer resolves STATUS and respects the readout toggle')
 
 -- If a replacement screen hides the Gen 1 move cursor, infer the selected move
@@ -617,7 +617,7 @@ gen1Gen3Hud.fn(function()
 end, {data={moves=moveRecords}}, {})
 local fallbackCount = 0
 for _, value in ipairs(hudPrintCalls) do if value == expectedFull then fallbackCount = fallbackCount + 1 end end
-expect((optionReadout and fallbackCount == 3) or ((not optionReadout) and fallbackCount == 0),
+expect((optionReadout and fallbackCount == 2) or ((not optionReadout) and fallbackCount == 0),
   'GEN 1 Gen 3 UI visible move-name fallback resolves the category')
 
 expect(type(mod.exports.modernUiSurgicalInstalled) == 'function',

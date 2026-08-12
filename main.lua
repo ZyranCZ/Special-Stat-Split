@@ -1,4 +1,4 @@
--- SPECIAL STAT SPLIT v2.6.2
+-- SPECIAL STAT SPLIT v2.6.3
 -- Release build for Gen1Recomp commit 60cf07fb0a1ffce0ec6d5d0d2f78a921a6d0b7da.
 --
 -- Scope: Generation II Special stat split + Generation IV+ per-move damage categories + integrated move-category battle readout.
@@ -1862,7 +1862,8 @@ local function runGoldBackend(mod)
       if type(typeEnd) ~= "number" or type(ppX) ~= "number" or ppX <= typeEnd then
         return nil
       end
-      return { y = rowY, typeEnd = typeEnd, ppX = ppX, style = typeStyle }
+      return { y = (typeStyle and typeStyle.y) or rowY,
+        typeEnd = typeEnd, ppX = ppX, style = typeStyle }
     end
 
     local function drawObservedCategory(G, originalPrint, geom, label)
@@ -1873,12 +1874,15 @@ local function runGoldBackend(mod)
       local left = geom.typeEnd + math.max(2, space)
       local right = geom.ppX - math.max(2, space)
       if right - left < labelWidth then return false end
-      -- Important for pixel-font parity with the Gen 3 UI footer: drawing on a
-      -- fractional X softens the glyphs and makes them look washed out even if
-      -- the colour is correct.  Snap the injected category to the nearest pixel
-      -- in the same coordinate space the observed footer used.
-      local x = math.floor(left + (right - left - labelWidth) / 2 + 0.5)
-      local y = type(geom.y) == "number" and math.floor(geom.y + 0.5) or geom.y
+      -- Match the replacement footer's own sub-pixel phase instead of forcing
+      -- the category onto a different pixel grid.  This keeps the same mild
+      -- antialiasing/linear-filtered look as TYPE/WATER/NORMAL while centering
+      -- the label in the measured TYPE..PP gap.
+      local targetX = left + (right - left - labelWidth) / 2
+      local phaseX = type(style.startX) == "number"
+        and (style.startX - math.floor(style.startX)) or 0
+      local x = math.floor(targetX - phaseX + 0.5) + phaseX
+      local y = geom.y
 
       local pushed = false
       if type(G.push) == "function" then
@@ -1895,18 +1899,20 @@ local function runGoldBackend(mod)
       if style.color and type(G.setColor) == "function" then
         pcall(G.setColor, style.color[1], style.color[2], style.color[3], style.color[4] or 1)
       end
-      -- Simulate a slightly bolder pixel-font weight for the injected
-      -- PHYSICAL/SPECIAL/STATUS footer label. The replacement UI font does not
-      -- expose a native bold face here, so draw a second identical pass one
-      -- pixel to the right. Keep the primary pass at the original centered X so
-      -- spacing/alignment remain effectively unchanged.
-      -- Match Gen 3 UI's heavier footer weight without switching fonts:
-      -- render the same glyphs twice on whole-pixel coordinates.  A one-pixel
-      -- horizontal overdraw thickens the strokes while keeping the exact font,
-      -- colour and transform we captured from TYPE/WATER/NORMAL.
+      -- Keep the TEST K semibold appearance, but soften it to match Gen 3 UI:
+      -- one normal pass plus a half-pixel, partially transparent shoulder.  A
+      -- full one-pixel triple overdraw made the category visibly harsher than
+      -- the antialiased footer text.
       originalPrint(label, x, y)
-      originalPrint(label, x + 1, y)
-      originalPrint(label, x + 1, y)
+      if style.color and type(G.setColor) == "function" then
+        pcall(G.setColor, style.color[1], style.color[2], style.color[3],
+          (style.color[4] or 1) * 0.70)
+        originalPrint(label, x + 0.5, y)
+        pcall(G.setColor, style.color[1], style.color[2], style.color[3],
+          style.color[4] or 1)
+      else
+        originalPrint(label, x + 0.5, y)
+      end
       if pushed and type(G.pop) == "function" then
         pcall(G.pop)
       else
@@ -2040,7 +2046,7 @@ local function runGoldBackend(mod)
       and mod.find("move_category") ~= nil or false
     local gen3Ui = gen3UiHandleForDiagnostics()
     return {
-      modVersion = tostring(mod.version or "2.6.2"),
+      modVersion = tostring(mod.version or "2.6.3"),
       apiVersion = 1,
       generation = "gold",
       requested = getGameplayConfig(),
@@ -2100,7 +2106,7 @@ local function runGoldBackend(mod)
 
   mod.exports.specialStatSplit = {
     apiVersion = 1,
-    modVersion = tostring(mod.version or "2.6.2"),
+    modVersion = tostring(mod.version or "2.6.3"),
     specialSplitActive = mod.exports.specialSplitActive,
     moveCategorySplitActive = mod.exports.moveCategorySplitActive,
     moveCategoryReadoutEnabled = mod.exports.moveCategoryReadoutEnabled,
@@ -2113,7 +2119,7 @@ local function runGoldBackend(mod)
   }
   mod.exports.specialStatSplitV2 = {
     apiVersion = 2,
-    modVersion = tostring(mod.version or "2.6.2"),
+    modVersion = tostring(mod.version or "2.6.3"),
     generation = function() return "gold" end,
     getRequestedGameplayConfig = getGameplayConfig,
     getEffectiveGameplayConfig = getEffectiveGameplayConfig,
@@ -2580,7 +2586,8 @@ return function(mod)
       if type(typeEnd) ~= "number" or type(ppX) ~= "number" or ppX <= typeEnd then
         return nil
       end
-      return { y = rowY, typeEnd = typeEnd, ppX = ppX, style = typeStyle }
+      return { y = (typeStyle and typeStyle.y) or rowY,
+        typeEnd = typeEnd, ppX = ppX, style = typeStyle }
     end
 
     local function gen1DrawObservedCategory(G, originalPrint, geom, label)
@@ -2591,8 +2598,11 @@ return function(mod)
       local left = geom.typeEnd + math.max(2, space)
       local right = geom.ppX - math.max(2, space)
       if right - left < labelWidth then return false end
-      local x = math.floor(left + (right - left - labelWidth) / 2 + 0.5)
-      local y = type(geom.y) == "number" and math.floor(geom.y + 0.5) or geom.y
+      local targetX = left + (right - left - labelWidth) / 2
+      local phaseX = type(style.startX) == "number"
+        and (style.startX - math.floor(style.startX)) or 0
+      local x = math.floor(targetX - phaseX + 0.5) + phaseX
+      local y = geom.y
 
       local pushed = false
       if type(G.push) == "function" then pushed = pcall(G.push, "all") end
@@ -2606,10 +2616,18 @@ return function(mod)
       if style.color and type(G.setColor) == "function" then
         pcall(G.setColor, style.color[1], style.color[2], style.color[3], style.color[4] or 1)
       end
-      -- Same visually confirmed weight as the Gold TEST K path.
+      -- Same softened semibold treatment as the Gold path: preserve the
+      -- replacement UI font/style, add only a half-pixel translucent shoulder.
       originalPrint(label, x, y)
-      originalPrint(label, x + 1, y)
-      originalPrint(label, x + 1, y)
+      if style.color and type(G.setColor) == "function" then
+        pcall(G.setColor, style.color[1], style.color[2], style.color[3],
+          (style.color[4] or 1) * 0.55)
+        originalPrint(label, x + 0.5, y)
+        pcall(G.setColor, style.color[1], style.color[2], style.color[3],
+          style.color[4] or 1)
+      else
+        originalPrint(label, x + 0.5, y)
+      end
       if pushed and type(G.pop) == "function" then
         pcall(G.pop)
       else
@@ -4157,7 +4175,7 @@ return function(mod)
     local standaloneMoveCategory = type(mod.find) == "function"
       and mod.find("move_category") ~= nil or false
     return {
-      modVersion = tostring(mod.version or "2.6.2"),
+      modVersion = tostring(mod.version or "2.6.3"),
       apiVersion = 1,
       gameplay = getGameplayConfig(),
       link = {
@@ -4192,7 +4210,7 @@ return function(mod)
 
   mod.exports.specialStatSplit = {
     apiVersion = 1,
-    modVersion = tostring(mod.version or "2.6.2"),
+    modVersion = tostring(mod.version or "2.6.3"),
     specialSplitActive = mod.exports.specialSplitActive,
     moveCategorySplitActive = mod.exports.moveCategorySplitActive,
     moveCategoryReadoutEnabled = mod.exports.moveCategoryReadoutEnabled,

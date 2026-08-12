@@ -205,7 +205,7 @@ local function makeMod(mode, moveMode, rows)
     wraps[name] = { fn = fn, priority = priority }
   end
   local mod = {
-    version = "2.6.2",
+    version = "2.6.3",
     DELETE = DELETE,
     options = options,
     content = { moves = registry, link_fields = links },
@@ -370,6 +370,30 @@ assert(colorMatchedPhysical.color
   and math.abs(colorMatchedPhysical.color[2] - 0.20) < 0.001
   and math.abs(colorMatchedPhysical.color[3] - 0.22) < 0.001,
   "Gen 3 UI category did not inherit the rendered move-type colour")
+-- The injected category must use the FINAL type-token pass baseline/phase,
+-- not the first TYPE helper pass.  This mirrors the live v1.4.0 footer, where
+-- the visible type text can be a couple of pixels above the helper row and can
+-- sit on a half-pixel X phase for mild antialiasing.
+resetUiDraws()
+currentDrawColor = { 1, 1, 1, 1 }
+wraps["render.hud"].fn(function()
+  love.graphics.print("FIRE PUNCH", 420, 650)
+  love.graphics.setColor(0.75, 0.75, 0.75, 1)
+  love.graphics.print("TYPE", 450, 700)
+  love.graphics.setColor(0.18, 0.20, 0.22, 1)
+  love.graphics.print("FIRE", 510.5, 698)
+  love.graphics.print("PP 15 / 15", 900, 700)
+end, renderGame, {})
+local phased = {}
+for _, row in ipairs(rawTextDraws) do
+  if row.text == "PHYSICAL" then phased[#phased + 1] = row end
+end
+assert(#phased == 2, "Gen 3 UI softened semibold should render exactly two category passes")
+assert(phased[1].y == 698 and math.abs((phased[1].x % 1) - 0.5) < 0.001,
+  "Gen 3 UI category did not inherit the visible type-token baseline/subpixel phase")
+assert(math.abs(phased[2].x - phased[1].x - 0.5) < 0.001
+  and phased[2].color and math.abs(phased[2].color[4] - 0.70) < 0.001,
+  "Gen 3 UI softened semibold shoulder is not half-pixel/70% alpha")
 local firstGen3Diag = mod.exports.getDiagnostics().integrations.gen3Ui
 assert(firstGen3Diag.detected == true and firstGen3Diag.runtimeDetected == true
   and firstGen3Diag.presentation == "gen3-render-hud-type-row"
