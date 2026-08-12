@@ -60,4 +60,8 @@ API v1 remains `apiVersion = 1`. `getSpecialBaseStats()` returns `nil` on Gold i
 ### Gold link revision
 
 When the engine exposes `link_fields`, Gold fingerprints **effective gameplay**, not the no-op requested Special setting. Both requested `VANILLA` and `GEN II` therefore use `special=native_gen2`; only `move=type_gen2` versus `move=gen4` is a Gold gameplay distinction. This avoids a false mismatch between two mechanically identical Gold Special-stat settings.
+### 2.6.2 presentation diagnostics
+
+On Gold, `getDiagnostics().integrations.gen3Ui` reports whether `gen3_battle_ui` is detected, its exposed handle version when available, and whether the active presentation target is `inline-type-row` or the native Gold tab. This is diagnostic/presentation metadata only and does not change API v1/v2 gameplay semantics.
+
 

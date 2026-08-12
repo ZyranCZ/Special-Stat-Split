@@ -1,4 +1,4 @@
-# Special Stat Split v2.6.0 — Gold / Gen 2 status
+# Special Stat Split v2.6.2 — Gold / Gen 2 status
 
 Port source baseline: Special Stat Split **2.5.2**, authoritative ZIP SHA-256 `0c61c8ae4eb537f5f45e586a4d965c4f5ae333e41289403e72144e86870b5e16`.
 
@@ -52,7 +52,8 @@ Current upstream UI re-audit anchor: `bryanthaboi/gen1recomp` `dev` commit `01aa
 | Optional mod combinations on Gold | NEEDS LIVE TEST | Crystal/Gen1 Modern UI are N/A; other Gold-capable mods need real combination tests |
 | Gold link play | NOT APPLICABLE / FUTURE until current upstream capability is explicitly confirmed and tested |
 | `games` Gold manifest opt-in | VERIFIED | final release declares `games: ["gen1", "gold"]`; Silver/Crystal are not claimed |
-| Version bump to 2.6.0 | VERIFIED | final Gold feature release identity applied after user live UI approval |
+| Version bump to 2.6.0 | VERIFIED | Gold feature release identity applied after user live UI approval |
+| 2.6.2 Gen 3 UI compatibility | LIVE PASS | inline foreign-UI presentation confirmed in real Gold; final font/colour/pixel alignment/bold weight accepted |
 
 ## Current automated command
 
@@ -69,4 +70,15 @@ The Gold contract covers Fire Punch and Shadow Ball opposite-direction category 
 
 ## Release decision
 
-**Released as Special Stat Split 2.6.0 for Red / Blue / Yellow + Pokémon Gold.** Gold boot/battle entry, native Summary split-stat display and the final category readout received live v0.1.78 verification. Automated contracts cover the broader mechanics listed above. Remaining rare/live edge-case checks stay documented rather than being misrepresented as completed; Silver/Crystal remain undeclared.
+**Special Stat Split 2.6.2 is the live-verified Gold release baseline.** Native Gold mechanics remain inherited from 2.6.0, while the Gen 3 Inspired UI inline move-category row is now LIVE PASS. Silver/Crystal remain undeclared.
+## 2.6.2 Gen 3 UI integration
+
+- Gen 3 Inspired UI Overhaul v1.4.0 release metadata / Gold support: STATICALLY VERIFIED via GitHub release.
+- Optional mod id `gen3_battle_ui`: inherited from the committed prior package; used as capability-detection key.
+- Inline TYPE/PP row bridge: HEADLESS PASS.
+- PHYSICAL / SPECIAL / STATUS routing: HEADLESS PASS.
+- Duplicate suppression / fail-safe / renderer restoration: HEADLESS PASS.
+- Real v1.4.0 visual smoke on Gold: NEEDS LIVE TEST.
+
+LIVE RESULT: Gen 3 UI v1.4.0 move footer successfully displays the Special Stat Split category inline; final styling was accepted after colour/font matching, integer pixel snap and 1px bold overdraw.
+

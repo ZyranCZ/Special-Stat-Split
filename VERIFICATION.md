@@ -1,6 +1,28 @@
-# Verification report — v2.6.0
+# Verification report — v2.6.2
 
+## 2.6.2 final Gen 3 UI compatibility gate — PASS
 
+- Accepted promotion baseline SHA-256: `533242255ab1204ab93732213eb9275794b2204a71e6de9bed148e109a2fce4c`.
+- Manifest identity is `2.6.2`, `experimental = false`, `games = ["gen1", "gold"]`, with no engine release-number gate.
+- Gen 3 UI inline move-category presentation is **LIVE PASS on Gold** and **LIVE PASS on Gen 1**.
+- Final visible style uses the foreign footer's observed font/colour/transform, integer-pixel placement and a 1-pixel two-pass overdraw.
+- Native Gen 1 readout remains the established `PHYS/` / `SPEC/` path when Gen 3 UI is absent.
+- Native Gold readout remains the live-tested top-border category tab when Gen 3 UI is absent.
+- Full bundled regression suite: PASS before packaging.
+- Freshly unpacked final release suite: required before artifact handoff and recorded in the packaged verification log.
+
+## 2.6.1 historical Gen 3 UI compatibility gate — superseded by 2.6.2 LIVE PASS
+
+- Release identity moved to `2.6.1`; gameplay/link revision semantics are unchanged from 2.6.0.
+- `gen3_battle_ui` is optional and detected by capability at render time; ordinary native Gold and Gen 1 paths remain independent.
+- The Gold `battle.overlay` wrapper is outermost by priority and temporarily observes downstream LOVE text calls only while Gen 3 UI is detected.
+- Separate TYPE/type/PP calls and a single combined info-row call are both covered.
+- PHYSICAL, SPECIAL and STATUS are covered; fixed/OHKO/reactive moves collapse to the trinary category expected by the Gen 3-style row.
+- Duplicate category text is suppressed if a future Gen 3 UI renders it itself.
+- Capture failure falls back to the native Gold readout.
+- `love.graphics.print` and `printf` restoration is contract-tested across downstream errors.
+- Full bundled suite: PASS.
+- Historical note: this was pending in 2.6.1; the v1.4.0 visual integration was subsequently live-verified and promoted in 2.6.2.
 
 ## 2.6.0 Gold release gate — PASS for packaged automated contracts
 

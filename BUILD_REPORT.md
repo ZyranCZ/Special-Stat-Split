@@ -1,7 +1,24 @@
-# Build report — v2.6.0
+# Build report — v2.6.2
 
+## 2.6.2 final promotion
 
-## 2.6.0 Gold feature release
+- Promotion baseline: user-confirmed `special_stat_split_v2.6.2_GEN1_GEN2_Gen3UI_TEST_L.zip`, SHA-256 `533242255ab1204ab93732213eb9275794b2204a71e6de9bed148e109a2fce4c`.
+- Internal version remains `2.6.2`; no gameplay logic changes were made during final promotion.
+- Gen 3 UI move-category footer is live-confirmed on both Gold and Gen 1.
+- Gold/Gen 2 behavior from the accepted bold footer build is retained.
+- Final release cleanup removes test-only compatibility-note documents and historical patch files from the user-facing ZIP.
+- Full bundled regression suite is rerun before packaging and again from the freshly unpacked release ZIP.
+
+## 2.6.1 Gen 3 UI / Gold compatibility update
+
+### 2.6.1 delta
+
+- Source baseline: assistant-delivered Special Stat Split 2.6.0.
+- Gameplay mechanics: unchanged.
+- Presentation: adds capability-based `gen3_battle_ui` Gold inline category readout in the existing TYPE/PP row.
+- New automated contracts: inline PHYSICAL/SPECIAL/STATUS placement, whole-row capture, duplicate suppression, fail-safe fallback, hook priority, and error-safe LOVE restoration.
+- Live Gen 3 UI v1.4.0 smoke remains the only new integration gate not executable headlessly here.
+
 
 - Adds the generation-isolated Pokémon Gold backend while preserving the existing Gen 1 backend.
 - Final manifest targets `gen1` and `gold` only.

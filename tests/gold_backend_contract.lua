@@ -119,12 +119,35 @@ package.preload["src.battle.gen2.Ai"] = function() return Ai end
 
 local overlayMarks = {}
 local overlayRects = {}
+local rawTextDraws = {}
+local currentDrawColor = { 1, 1, 1, 1 }
+local testFont = {
+  getWidth = function(_, text) return #tostring(text or "") * 6 end,
+}
 _G.love = {
   graphics = {
-    getColor = function() return 1, 1, 1, 1 end,
-    setColor = function() end,
+    getColor = function()
+      return currentDrawColor[1], currentDrawColor[2], currentDrawColor[3], currentDrawColor[4]
+    end,
+    getDimensions = function() return 1026, 768 end,
+    setColor = function(r, g, b, a)
+      currentDrawColor = { r, g, b, a == nil and 1 or a }
+    end,
     rectangle = function(mode, x, y, w, h)
       overlayRects[#overlayRects + 1] = { mode=mode, x=x, y=y, w=w, h=h }
+    end,
+    getFont = function() return testFont end,
+    print = function(text, x, y, ...)
+      rawTextDraws[#rawTextDraws + 1] = {
+        kind="print", text=text, x=x, y=y, extra={...},
+        color={currentDrawColor[1], currentDrawColor[2], currentDrawColor[3], currentDrawColor[4]},
+      }
+    end,
+    printf = function(text, x, y, limit, align, ...)
+      rawTextDraws[#rawTextDraws + 1] = {
+        kind="printf", text=text, x=x, y=y, limit=limit, align=align, extra={...},
+        color={currentDrawColor[1], currentDrawColor[2], currentDrawColor[3], currentDrawColor[4]},
+      }
     end,
   },
 }
@@ -182,13 +205,16 @@ local function makeMod(mode, moveMode, rows)
     wraps[name] = { fn = fn, priority = priority }
   end
   local mod = {
-    version = "2.6.0",
+    version = "2.6.2",
     DELETE = DELETE,
     options = options,
     content = { moves = registry, link_fields = links },
     exports = {},
     hooks = hooks,
-    find = function() return nil end,
+    find = function(id)
+      if id == "gen3_battle_ui" then return values.__gen3Ui end
+      return nil
+    end,
     log = {
       info = function(_, text) logs[#logs+1] = text end,
       warn = function(_, text) logs[#logs+1] = "WARN:" .. text end,
@@ -207,6 +233,7 @@ local TYPE_CHART = { types = {
 local function baseRows()
   return {
     FIRE_PUNCH={id="FIRE_PUNCH", index=7, name="Fire Punch", type="FIRE", power=75},
+    SCRATCH={id="SCRATCH", index=10, name="Scratch", type="NORMAL", power=40},
     FLAMETHROWER={id="FLAMETHROWER", index=53, name="Flamethrower", type="FIRE", power=95},
     BITE={id="BITE", index=44, name="Bite", type="DARK", power=60},
     HYPER_BEAM={id="HYPER_BEAM", index=63, name="Hyper Beam", type="NORMAL", power=150},
@@ -225,7 +252,7 @@ assert(type(entry) == "function", "main.lua did not return mod entry")
 
 -- GEN IV+ Gold backend.
 local rows = baseRows()
-local mod, _, registry, links, defined, _, wraps = makeMod("gen2", "gen4", rows)
+local mod, values, registry, links, defined, _, wraps = makeMod("gen2", "gen4", rows)
 entry(mod)
 assert(type(defined()) == "table", "Gold options were not defined")
 assert(rows.FIRE_PUNCH.category == "physical", "Fire Punch registry category")
@@ -279,6 +306,155 @@ wraps["battle.overlay"].fn(function() end, overlayScreen)
 assert(#overlayMarks == 1 and overlayMarks[1].text == "SPECIAL",
   "Gold readout disappeared during native SELECT move reordering")
 overlayScreen.moveSwapIndex = nil
+assert(wraps["battle.overlay"].priority == math.huge,
+  "Gold readout wrapper must stay outermost for automatic Gen 3 UI inline capture")
+
+-- Gen 3 Inspired UI v1.4.0 Gold move-panel compatibility.  This bridge does
+-- not rely on battle.overlay, a foreign mod id, a hard-coded BattleState class,
+-- or fixed screen coordinates.  It wraps the final render.hud chain, observes
+-- the actual TYPE / PP text painted by the replacement move panel, and uses the
+-- live Gold state (or, if that cursor is hidden, the selected move name the UI
+-- itself renders) to add PHYSICAL / SPECIAL / STATUS on the same baseline.
+local function resetUiDraws()
+  overlayMarks, overlayRects, rawTextDraws = {}, {}, {}
+end
+local function findRaw(text)
+  for _, row in ipairs(rawTextDraws) do
+    if row.text == text then return row end
+  end
+  return nil
+end
+
+assert(wraps["render.hud"] and type(wraps["render.hud"].fn) == "function"
+  and wraps["render.hud"].priority == math.huge,
+  "Gold Gen 3 UI move-panel observer was not installed as outer render.hud wrapper")
+
+local renderGame = {
+  data = { moves = rows, type_chart = TYPE_CHART },
+  stack = { top = function() return overlayScreen end },
+}
+
+-- Direct native/replacement state path: moveIndex + battle.player.moves.
+overlayScreen.moveIndex = 1
+resetUiDraws()
+wraps["render.hud"].fn(function()
+  love.graphics.print("FIRE PUNCH", 420, 650)
+  love.graphics.print("TYPE", 450, 700)
+  love.graphics.print("FIRE", 510, 700)
+  love.graphics.print("PP 15 / 15", 900, 700)
+end, renderGame, {})
+local panelPhysical = assert(findRaw("PHYSICAL"),
+  "Gen 3 UI render.hud observer did not draw PHYSICAL from live Gold state")
+assert(panelPhysical.y == 700 and panelPhysical.x > 530 and panelPhysical.x < 900,
+  "Gen 3 UI PHYSICAL was not placed in the observed TYPE/PP gap")
+
+-- The category text must inherit the TYPE/type-value colour, not PP or any
+-- lighter footer colour.  This mirrors Gen 3 UI v1.4.0, where TYPE WATER and
+-- PP are visually dark but unrelated draw calls can leave a washed-out colour
+-- active by the time our post-render injection runs.
+resetUiDraws()
+currentDrawColor = { 1, 1, 1, 1 }
+wraps["render.hud"].fn(function()
+  love.graphics.setColor(0.20, 0.22, 0.24, 1)
+  love.graphics.print("FIRE PUNCH", 420, 650)
+  love.graphics.print("TYPE", 450, 700)
+  love.graphics.setColor(0.18, 0.20, 0.22, 1)
+  love.graphics.print("FIRE", 510, 700)
+  love.graphics.setColor(0.75, 0.75, 0.75, 1)
+  love.graphics.print("PP 15 / 15", 900, 700)
+end, renderGame, {})
+local colorMatchedPhysical = assert(findRaw("PHYSICAL"),
+  "Gen 3 UI colour-match probe did not draw PHYSICAL")
+assert(colorMatchedPhysical.color
+  and math.abs(colorMatchedPhysical.color[1] - 0.18) < 0.001
+  and math.abs(colorMatchedPhysical.color[2] - 0.20) < 0.001
+  and math.abs(colorMatchedPhysical.color[3] - 0.22) < 0.001,
+  "Gen 3 UI category did not inherit the rendered move-type colour")
+local firstGen3Diag = mod.exports.getDiagnostics().integrations.gen3Ui
+assert(firstGen3Diag.detected == true and firstGen3Diag.runtimeDetected == true
+  and firstGen3Diag.presentation == "gen3-render-hud-type-row"
+  and firstGen3Diag.activation == "observed-type-pp-row",
+  "Gold diagnostics did not record the successful observed TYPE/PP injection")
+
+-- Text-derived fallback: replacement screen exposes no moveIndex/battle fields.
+-- The selected detail is the LEFTMOST visible move name; the four-choice list
+-- may render the same name again farther right.
+local replacementState = { screenId = "Gen2BattleState" }
+renderGame.stack.top = function() return replacementState end
+resetUiDraws()
+wraps["render.hud"].fn(function()
+  love.graphics.print("SCRATCH", 410, 650)
+  love.graphics.print("SCRATCH", 760, 650)
+  love.graphics.print("LEER", 760, 675)
+  love.graphics.print("TYPE", 450, 700)
+  love.graphics.print("NORMAL", 510, 700)
+  love.graphics.print("PP 32 / 35", 900, 700)
+end, renderGame, {})
+local scratchPhysical = assert(findRaw("PHYSICAL"),
+  "Gen 3 UI visible move-name fallback did not resolve SCRATCH")
+assert(scratchPhysical.y == 700 and scratchPhysical.x > 550 and scratchPhysical.x < 900,
+  "SCRATCH category was not centered in the observed TYPE/PP gap")
+
+-- SPECIAL category through the same replacement-screen fallback.
+resetUiDraws()
+wraps["render.hud"].fn(function()
+  love.graphics.print("SHADOW BALL", 410, 650)
+  love.graphics.print("TYPE", 450, 700)
+  love.graphics.print("GHOST", 510, 700)
+  love.graphics.print("PP 15 / 15", 900, 700)
+end, renderGame, {})
+assert(findRaw("SPECIAL"), "Gen 3 UI visible move-name fallback did not draw SPECIAL")
+
+-- STATUS category.
+resetUiDraws()
+wraps["render.hud"].fn(function()
+  love.graphics.print("SWORDS DANCE", 410, 650)
+  love.graphics.print("TYPE", 450, 700)
+  love.graphics.print("NORMAL", 510, 700)
+  love.graphics.print("PP 20 / 20", 900, 700)
+end, renderGame, {})
+assert(findRaw("STATUS"), "Gen 3 UI visible move-name fallback did not draw STATUS")
+
+-- Whole-row renderer: TYPE/type/PP may be emitted in one call.
+resetUiDraws()
+wraps["render.hud"].fn(function()
+  love.graphics.print("SHADOW BALL", 410, 650)
+  love.graphics.print("TYPE  GHOST                              PP 15 / 15", 450, 700)
+end, renderGame, {})
+assert(findRaw("SPECIAL"), "Gen 3 UI whole-row move footer did not draw SPECIAL")
+
+-- Future native category support must not be duplicated.
+resetUiDraws()
+wraps["render.hud"].fn(function()
+  love.graphics.print("SHADOW BALL", 410, 650)
+  love.graphics.print("TYPE  GHOST      SPECIAL                 PP 15 / 15", 450, 700)
+end, renderGame, {})
+local specialCount = 0
+for _, row in ipairs(rawTextDraws) do if row.text == "SPECIAL" then specialCount = specialCount + 1 end end
+assert(specialCount == 0, "Gen 3 UI category was duplicated despite native category text")
+
+-- Non-move HUDs have no TYPE+PP row and therefore receive no category text.
+resetUiDraws()
+wraps["render.hud"].fn(function()
+  love.graphics.print("SOME OTHER HUD", 450, 700)
+end, renderGame, {})
+assert(not findRaw("PHYSICAL") and not findRaw("SPECIAL") and not findRaw("STATUS"),
+  "move category leaked outside a TYPE/PP move footer")
+
+-- LOVE interception must restore even when a downstream HUD renderer throws.
+local originalPrintAfterTests = love.graphics.print
+local originalPrintfAfterTests = love.graphics.printf
+local okRestore = pcall(function()
+  wraps["render.hud"].fn(function() error("GEN3_RENDER_SENTINEL") end, renderGame, {})
+end)
+assert(not okRestore, "Gen 3 renderer error sentinel did not propagate")
+assert(love.graphics.print == originalPrintAfterTests and love.graphics.printf == originalPrintfAfterTests,
+  "Gen 3 UI render.hud text interception leaked after downstream error")
+
+local gen3Diag = mod.exports.getDiagnostics().integrations.gen3Ui
+assert(gen3Diag.detected == true and gen3Diag.runtimeDetected == true,
+  "Gold diagnostics lost Gen 3 UI move-panel detection")
+resetUiDraws()
 
 local attacker = { level=50, stats={attack=500, specialAttack=20}, types={"NORMAL"} }
 local defender = { stats={defense=20, specialDefense=500}, types={"NORMAL"} }
@@ -384,7 +560,7 @@ assert(#overlayMarks == 1 and overlayMarks[1].text == "SPECIAL"
 assert(#overlayRects == 1 and overlayRects[1].x == 8 * 8
   and overlayRects[1].w == 10 * 8,
   "Gold type-based SPECIAL readout did not keep the normalized 10-tile field")
-assert(modType.exports.getDiagnostics().gold.categoryConsumers.readout == "covered-public-overlay",
+assert(modType.exports.getDiagnostics().gold.categoryConsumers.readout == "covered-public-overlay+gen3-inline",
   "Gold diagnostics did not report public-overlay readout coverage")
 
 print("special_stat_split Gold backend contract: PASS")

@@ -1,10 +1,33 @@
-# Manual smoke test — v2.6.0
+# Manual smoke test — v2.6.2
 
 Frozen integration fixture: **Gen1Recomp v0.1.75**, commit `60cf07fb0a1ffce0ec6d5d0d2f78a921a6d0b7da`. Runtime compatibility is intentionally not pinned to this release.
 
 Automated tests cover the full stat/category tables, Gen IV–IX parity, collision guards, gameplay-config link revisions, public API/diagnostics contracts, source guards and operand routing. Manual testing should focus on real-game integration, third-party combinations and the real two-peer handshake.
 
-The final 2.6.0 release includes user-confirmed Gold boot/battle, Summary and category-readout smoke in addition to the inherited Gen 1 UI smoke. Dedicated multiplayer certification is optional rather than a release gate; see `OPTIONAL_LINK_QA_2.5.2.md` if it is ever tested later.
+The 2.6.2 release has user-confirmed Gold boot/battle, Summary/category-readout smoke and live Gen 3 UI move-footer smoke on both Gold and Gen 1. Dedicated multiplayer certification is optional rather than a release gate; see `OPTIONAL_LINK_QA_2.5.2.md` if it is ever tested later.
+
+
+## Gen 1 + Gen 3 Inspired UI move-category check
+
+1. Boot Red, Blue, or Yellow with Gen 3 Inspired UI enabled and **MOVE CATEGORY READOUT = ON**.
+2. Open FIGHT and highlight a damaging Physical move: the wide footer must show **PHYSICAL** between the displayed TYPE value and PP.
+3. Highlight a damaging Special move: the same field must show **SPECIAL**.
+4. Highlight a status move: the same field must show **STATUS**.
+5. The text must inherit the footer style, remain pixel-sharp, and use the same confirmed bold weight as the live Gold path.
+6. Set **MOVE CATEGORY READOUT = OFF**: the Gen 3 UI footer must return to its untouched original form.
+7. Disable Gen 3 UI and repeat FIGHT: the original Gen 1 readout must still use the established `PHYS/` / `SPEC/` replacement and must not show the wide full-word overlay.
+
+## Gold + Gen 3 Inspired UI Overhaul v1.4.0
+
+1. Enable `gen3_battle_ui` v1.4.0 and Special Stat Split 2.6.2 on Gold.
+2. Keep **MOVE CATEGORY READOUT = ON** and enter FIGHT.
+3. Highlight a modern **Physical** move (Bite or Fire Punch are suitable): the bottom information row should retain `TYPE <element>` on the left and `PP` on the right, with **PHYSICAL** in the gap on the **same row**.
+4. Highlight a modern **Special** move such as Water Gun/Flamethrower/Shadow Ball as appropriate to the current moveset: the same location should read **SPECIAL**.
+5. Highlight a Status move: the same location should read **STATUS**.
+6. Confirm the native Gold top-border category tab is not also visible over the Gen 3 move panel.
+7. Move the cursor through all four slots and verify category text updates immediately without shifting `TYPE`, the elemental type, or `PP`.
+8. Set **MOVE CATEGORY READOUT = OFF**: Gen 3 UI's row must return to its untouched original form.
+9. If possible, repeat after resizing/window scaling; the category should remain between type and PP because placement is measured from the live renderer rather than fixed coordinates.
 
 ## Gold / Gen 2
 
@@ -16,7 +39,7 @@ Automated Gold contracts are now part of `bash tools/run_all.sh`. They are **not
 4. Verify Reflect / Light Screen, Counter / Mirror Coat, AI choice, crit, STAB, effectiveness, weather and held type boosters remain Gold-native except for the selected stat pair.
 5. Verify Growth, Amnesia, Psychic's Sp. Def drop, X SPECIAL, Transform, Haze and Light Screen occur exactly once with native Gold behavior.
 6. Save, restart and reload; DVs, Stat Exp, Sp. Atk, Sp. Def, moves and mod options must round-trip with no Gen 1 save stripping.
-7. In FIGHT, the selected damaging move should show `P` or `S` immediately left of the cursor. Status/power-0 moves show no marker; SELECT move-reordering must retain its native `▷` marker.
+7. In native Gold FIGHT, the top-border title should follow the selected move (`PHYSICAL`, `SPECIAL`, `STATUS`, or the documented non-formula label) without moving the native rows; SELECT move-reordering must retain its native marker. With Gen 3 UI active, use the dedicated inline-row matrix above instead.
 8. Confirm native Gold Party/Summary/level-up screens are otherwise visually unchanged.
 
 Current verified and still-unverified Gold edges are recorded in `GOLD_PORT_STATUS.md`.

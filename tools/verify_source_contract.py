@@ -12,7 +12,7 @@ MAIN = (ROOT / 'main.lua').read_text(encoding='utf-8')
 MANIFEST = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
 
 assert MANIFEST['id'] == 'special_stat_split'
-assert MANIFEST['version'] == '2.6.0'
+assert MANIFEST['version'] == '2.6.2'
 assert 'ModernUI Override' in MAIN
 assert 'modern_ui_override' in MAIN
 assert 'ModernUI BattleWIP Override' in MAIN
@@ -24,6 +24,7 @@ assert 'pokedex_plus' in MANIFEST.get('optional_dependencies', [])
 assert 'CRYSTAL_251' in MANIFEST.get('optional_dependencies', [])
 assert 'gen1_modern_ui' in MANIFEST.get('optional_dependencies', [])
 assert 'move_category' in MANIFEST.get('optional_dependencies', [])
+assert 'gen3_battle_ui' in MANIFEST.get('optional_dependencies', [])
 assert MANIFEST.get('github') == 'ZyranCZ/Special-Stat-Split'
 assert MANIFEST.get('experimental') is False
 assert MANIFEST.get('affects_link') is True
@@ -37,6 +38,12 @@ required = [
     'mod.exports.moveCategorySplitActive',
     'mod.exports.getMoveCategory',
     'MOVE CATEGORY READOUT',
+    'gen3UiRuntimeDetected',
+    'automatic-render-capability',
+    'end, math.huge)',
+    'callWithGen3Inline',
+    'categoryOnlyLabel',
+    'hooks:wrap("battle.overlay"',
     'move_category_readout',
     'MOVE_READOUT_PATCH_KEY',
     'PHYS/',

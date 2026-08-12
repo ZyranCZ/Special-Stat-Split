@@ -1,4 +1,4 @@
--- SPECIAL STAT SPLIT v2.6.0
+-- SPECIAL STAT SPLIT v2.6.2
 -- Release build for Gen1Recomp commit 60cf07fb0a1ffce0ec6d5d0d2f78a921a6d0b7da.
 --
 -- Scope: Generation II Special stat split + Generation IV+ per-move damage categories + integrated move-category battle readout.
@@ -1145,6 +1145,42 @@ local function runGoldBackend(mod)
   -- implies that Attack/Defense or Sp.Atk/Sp.Def drives damage when it does not.
   -- Names and PP remain on Gold's four native rows, untouched.
   local readoutHookInstalled = false
+  local gen3UiRuntimeDetected = false
+  local gen3UiRuntimeInline = false
+  -- Gold/Gen 2 only: Gen 3 UI v1.4 renders its replacement battle panel from
+  -- render.hud after the normal battle.overlay pass.  Latch the current Gold
+  -- battle screen in battle.overlay, then draw the category after render.hud's
+  -- downstream chain exactly like the already-live-tested Enemy HP integration.
+  local gen3UiRenderHudInstalled = false
+  local gen3UiRenderHudDrawn = false
+  local gen3UiRenderHudSource = nil
+  local goldLastScreen = nil
+  local function gen3UiHandleForDiagnostics()
+    if type(mod.find) ~= "function" then return nil end
+    for _, id in ipairs({ "gen3_battle_ui", "gen3_battle_ui_overhaul", "gen3_ui" }) do
+      local ok, handle = pcall(mod.find, id)
+      if ok and handle then return handle end
+    end
+    return nil
+  end
+  local function runtimeGen3Entry()
+    local ok, Runtime = pcall(require, "src.mods.Runtime")
+    local hooks = ok and Runtime and Runtime.hooks or nil
+    local chain = hooks and hooks.chains and hooks.chains["render.hud"]
+    if type(chain) ~= "table" then return nil end
+    for _, entry in ipairs(chain) do
+      if type(entry) == "table" and type(entry.callback) == "function"
+          and tostring(entry.owner or "") == "gen3_battle_ui" then
+        return entry
+      end
+    end
+    return nil
+  end
+  local function gen3UiActive()
+    if gen3UiHandleForDiagnostics() ~= nil then return true, "mod.find" end
+    if runtimeGen3Entry() ~= nil then return true, "runtime-owner" end
+    return false, nil
+  end
   local hooks = mod.hooks
   if hooks and type(hooks.wrap) == "function" then
     local Chrome, chromeTried
@@ -1167,14 +1203,16 @@ local function runGoldBackend(mod)
     }
     local reactiveDamageMoves = { bide = true }
 
-    local function readoutLabel(id, def, data)
+    -- The Gen 3-inspired UI has its own wide move panel on Gold.  Do NOT gate
+    -- compatibility on a mod id: v1.4.0 is distributed as an external release
+    -- and its loader-visible identity/order may change independently of its
+    -- renderer.  Instead, detect the capability live: if downstream rendering
+    -- exposes a TYPE <move type> ... PP information row for the selected move,
+    -- inject the trinary category there automatically.  Native Gold has no such
+    -- row, so it naturally falls back to the proven top-border tab.
+
+    local function categoryOnlyLabel(id, def, data)
       if type(def) ~= "table" then return nil end
-      local key = normalizeMoveKey(id)
-      if key == "" then key = normalizeMoveKey(def.id) end
-      if key == "" then key = normalizeMoveKey(def.name) end
-      if fixedDamageMoves[key] then return "FIXED" end
-      if ohkoMoves[key] then return "OHKO" end
-      if reactiveDamageMoves[key] then return "REACTIVE" end
 
       -- STATUS is stable across both settings.  Use the audited canonical table
       -- first so a type-based Gold boot does not mistake a power-0 status move
@@ -1196,6 +1234,133 @@ local function runGoldBackend(mod)
           and "physical" or "special"
       end
       return category == "physical" and "PHYSICAL" or "SPECIAL"
+    end
+
+    -- Working Gen 3 UI technique borrowed from Enemy HP v2.1.0 test A/B:
+    -- its replacement UI is a screen-space render.hud presenter.  Draw only
+    -- after that presenter has finished, never from the earlier Gold overlay.
+    local function gen3Scale()
+      local G = rawget(_G, "love") and love.graphics or nil
+      if not (G and type(G.getDimensions) == "function") then return nil end
+      local sw, sh = G.getDimensions()
+      local raw = math.min(sw / 430, sh / 245)
+      if raw <= 4.5 then return math.max(2.85, math.min(raw, 3.85)) end
+      return math.max(3.85, math.min(3.85 + (raw - 4.5) * 0.72, 7.0))
+    end
+
+    local gen3Fonts = {}
+    local function gen3Font(size)
+      local G = rawget(_G, "love") and love.graphics or nil
+      if not G then return nil end
+      local px = math.max(4, math.floor(math.max(4, (tonumber(size) or 4) * 1.08) + 0.5))
+      if gen3Fonts[px] then return gen3Fonts[px] end
+      local okFont, EngineFont = pcall(require, "src.render.Font")
+      if okFont and EngineFont and EngineFont.PLAINPIXEL
+          and type(G.newFont) == "function" then
+        local ok, font = pcall(G.newFont, EngineFont.PLAINPIXEL, px, "normal")
+        if ok and font then
+          if type(font.setFilter) == "function" then
+            pcall(font.setFilter, font, "linear", "linear")
+          end
+          gen3Fonts[px] = font
+          return font
+        end
+      end
+      return type(G.getFont) == "function" and G.getFont() or nil
+    end
+
+    local function exactGen3Print(textValue, x, y, size, color, align, width)
+      local G = rawget(_G, "love") and love.graphics or nil
+      if not (G and type(G.setColor) == "function") then return false end
+      local font = gen3Font(size)
+      local oldFont = type(G.getFont) == "function" and G.getFont() or nil
+      local r, g, b, a
+      if type(G.getColor) == "function" then r, g, b, a = G.getColor() end
+      if font and type(G.setFont) == "function" then G.setFont(font) end
+      textValue = tostring(textValue or "")
+      color = color or {0.11, 0.12, 0.11, 1}
+      local shadow = {0.14, 0.16, 0.13, 0.24}
+      if width and type(G.printf) == "function" then
+        G.setColor(shadow); G.printf(textValue, x + 1, y + 1, width, align or "left")
+        G.setColor(color); G.printf(textValue, x, y, width, align or "left")
+        G.printf(textValue, x + 0.45, y, width, align or "left")
+      elseif type(G.print) == "function" then
+        G.setColor(shadow); G.print(textValue, x + 1, y + 1)
+        G.setColor(color); G.print(textValue, x, y)
+        G.print(textValue, x + 0.45, y)
+      else
+        return false
+      end
+      if oldFont and type(G.setFont) == "function" then G.setFont(oldFont) end
+      if r ~= nil then G.setColor(r, g, b, a or 1) else G.setColor(1, 1, 1, 1) end
+      return true
+    end
+
+    local function selectedMoveForGoldScreen(screen)
+      if type(screen) ~= "table" or screen.phase ~= "moves" then return nil, nil, nil end
+      local index = tonumber(screen.moveIndex)
+      if not index then return nil, nil, nil end
+      local moves
+      if type(screen.playerMoves) == "function" then
+        local ok, value = pcall(screen.playerMoves, screen)
+        if ok then moves = value end
+      end
+      if type(moves) ~= "table" then
+        moves = screen.battle and screen.battle.player and screen.battle.player.moves
+      end
+      local selected = type(moves) == "table" and moves[index] or nil
+      if type(selected) ~= "table" then return nil, nil, nil end
+      local data = screen.game and screen.game.data
+      local def = data and data.moves and data.moves[selected.id]
+      return selected, def, data
+    end
+
+    local function goldScreenIsTop(game, screen)
+      if type(screen) ~= "table" or screen.phase ~= "moves" then return false end
+      local stack = game and game.stack
+      if not stack then return true end
+      local top
+      if type(stack.top) == "function" then
+        local ok, value = pcall(stack.top, stack)
+        if ok then top = value end
+      elseif type(stack.states) == "table" then
+        top = stack.states[#stack.states]
+      end
+      return top == nil or top == screen
+    end
+
+    local function drawFixedGen3Category(game, screen)
+      if mod.options:get("move_category_readout") == false
+          or not goldScreenIsTop(game, screen) then return false end
+      local selected, def, data = selectedMoveForGoldScreen(screen)
+      if not selected or type(def) ~= "table" then return false end
+      local label = categoryOnlyLabel(selected.id, def, data)
+      if not label then return false end
+      local G = rawget(_G, "love") and love.graphics or nil
+      if not (G and type(G.getDimensions) == "function") then return false end
+      local s = gen3Scale()
+      if not s then return false end
+      local sw, sh = G.getDimensions()
+      -- Tuned to Gen 3 UI v1.4.0's Gold TYPE ... PP footer.  These are
+      -- screen-space coordinates derived from the same scale helper used by
+      -- the live-working Enemy HP Gen 3 overlay.  The centered field occupies
+      -- only the blank area between the move type and PP counter.
+      local x = sw - 135 * s
+      local y = sh - 20.7 * s
+      local width = 58 * s
+      return exactGen3Print(label, x, y, 4.4 * s,
+        {0.11, 0.12, 0.11, 1}, "center", width)
+    end
+
+    local function readoutLabel(id, def, data)
+      if type(def) ~= "table" then return nil end
+      local key = normalizeMoveKey(id)
+      if key == "" then key = normalizeMoveKey(def.id) end
+      if key == "" then key = normalizeMoveKey(def.name) end
+      if fixedDamageMoves[key] then return "FIXED" end
+      if ohkoMoves[key] then return "OHKO" end
+      if reactiveDamageMoves[key] then return "REACTIVE" end
+      return categoryOnlyLabel(id, def, data)
     end
 
     local function drawReadoutTab(chrome, label)
@@ -1239,7 +1404,149 @@ local function runGoldBackend(mod)
       return true
     end
 
+    local function normalizedUiText(value)
+      if type(value) ~= "string" then return nil end
+      return value:upper():gsub("[%c]", " ")
+    end
+
+    local function moveTypeToken(def)
+      local token = type(def) == "table" and tostring(def.type or "") or ""
+      token = token:upper():gsub("_TYPE$", ""):gsub("[^A-Z0-9]", "")
+      return token
+    end
+
+    -- Run the downstream overlay chain while temporarily observing LOVE's text
+    -- calls.  This is deliberately renderer-agnostic: no Gen 3 UI coordinates,
+    -- font size, window size, or release number are hardcoded.  Once the UI has
+    -- drawn TYPE + the selected move's type and exposes PP on the same baseline,
+    -- put PHYSICAL/SPECIAL/STATUS in the actual gap using the exact current font,
+    -- colour, transform, and canvas.  If the foreign renderer changes enough
+    -- that these capabilities disappear, restoration is guaranteed and the
+    -- native Gold tab is used as a fail-safe instead.
+    local function callWithGen3Inline(next, screen, label, def)
+      local G = rawget(_G, "love") and love.graphics or nil
+      if not (G and type(G.print) == "function") then
+        return pack(next(screen)), false
+      end
+      local originalPrint = G.print
+      local originalPrintf = type(G.printf) == "function" and G.printf or nil
+      local typeToken = moveTypeToken(def)
+      if typeToken == "" then return pack(next(screen)), false end
+
+      local rowY, typeEnd, ppX
+      local injected, alreadyPresent = false, false
+      local pendingExtra = nil
+
+      local function sameRow(a, b)
+        return type(a) == "number" and type(b) == "number"
+          and math.abs(a - b) <= 2
+      end
+
+      local function fontWidth(text)
+        local font = type(G.getFont) == "function" and G.getFont() or nil
+        if font and type(font.getWidth) == "function" then
+          local ok, width = pcall(font.getWidth, font, tostring(text or ""))
+          if ok and type(width) == "number" then return width end
+        end
+        return #tostring(text or "") * 6
+      end
+
+      local function visualStartX(text, x, limit, align)
+        if type(x) ~= "number" then return nil end
+        if type(limit) ~= "number" then return x end
+        local width = fontWidth(text)
+        if align == "right" then return x + limit - width end
+        if align == "center" then return x + (limit - width) / 2 end
+        return x
+      end
+
+      local function wordPresent(upper, word)
+        return type(upper) == "string" and upper:find(word, 1, true) ~= nil
+      end
+
+      local function maybeInject(extra)
+        if injected or alreadyPresent or not (rowY and typeEnd and ppX) then return end
+        local width = fontWidth(label)
+        local left = typeEnd + 4
+        local right = ppX - 4
+        if right - left < width then return end
+        local x = left + (right - left - width) / 2
+        -- Preserve per-call rotation/scale arguments when PP was rendered with
+        -- love.graphics.print(...).  Most Gen 3 UI builds use a global transform,
+        -- but carrying these through makes the bridge safe for either style.
+        if type(extra) == "table" and (extra.n or 0) > 0 then
+          originalPrint(label, x, rowY, unpack(extra, 1, extra.n))
+        else
+          originalPrint(label, x, rowY)
+        end
+        injected = true
+      end
+
+      local function observe(text, x, y, limit, align, extra)
+        local upper = normalizedUiText(text)
+        if not upper or type(x) ~= "number" or type(y) ~= "number" then return end
+        local startX = visualStartX(text, x, limit, align)
+        if not startX then return end
+
+        if wordPresent(upper, "PHYSICAL") or wordPresent(upper, "SPECIAL")
+            or wordPresent(upper, "STATUS") then
+          if rowY == nil or sameRow(rowY, y) then alreadyPresent = true end
+        end
+
+        local typeWordPos = upper:find("TYPE", 1, true)
+        local typePos = upper:find(typeToken, 1, true)
+        local ppPos = upper:find("PP", 1, true)
+
+        if typeWordPos then
+          rowY = y
+          if typePos then
+            typeEnd = startX + fontWidth(tostring(text):sub(1, typePos + #typeToken - 1))
+          else
+            typeEnd = startX + fontWidth(tostring(text))
+          end
+        elseif rowY and sameRow(rowY, y) and typePos then
+          typeEnd = startX + fontWidth(tostring(text):sub(1, typePos + #typeToken - 1))
+        end
+
+        if rowY and sameRow(rowY, y) and ppPos then
+          ppX = startX + fontWidth(tostring(text):sub(1, ppPos - 1))
+          pendingExtra = extra
+          maybeInject(pendingExtra)
+        end
+      end
+
+      G.print = function(text, x, y, ...)
+        local extra = pack(...)
+        local result = pack(originalPrint(text, x, y, ...))
+        observe(text, x, y, nil, nil, extra)
+        return unpack(result, 1, result.n)
+      end
+      if originalPrintf then
+        G.printf = function(text, x, y, limit, align, ...)
+          local extra = pack(...)
+          local result = pack(originalPrintf(text, x, y, limit, align, ...))
+          observe(text, x, y, limit, align, extra)
+          return unpack(result, 1, result.n)
+        end
+      end
+
+      local called = pack(pcall(next, screen))
+      G.print = originalPrint
+      if originalPrintf then G.printf = originalPrintf end
+      if not called[1] then error(called[2], 0) end
+
+      local result = { n = called.n - 1 }
+      for i = 2, called.n do result[i - 1] = called[i] end
+      return result, injected or alreadyPresent
+    end
+
+    -- Native Gold still uses the proven top-border tab.  Gen 3 UI may later
+    -- cover this whole panel, which is fine: the dedicated render.hud bridge
+    -- below observes the replacement move panel itself and draws into its real
+    -- TYPE ... PP row.  Keeping the native branch here preserves the exact
+    -- non-Gen3 behavior that was already live-tested.
     hooks:wrap("battle.overlay", function(next, screen)
+      goldLastScreen = screen
       local result = pack(next(screen))
       if mod.options:get("move_category_readout") == false
           or type(screen) ~= "table" or screen.phase ~= "moves" then
@@ -1259,11 +1566,416 @@ local function runGoldBackend(mod)
       if type(selected) ~= "table" then return unpack(result, 1, result.n) end
       local data = screen.game and screen.game.data
       local def = data and data.moves and data.moves[selected.id]
-      local label = readoutLabel(selected.id, def, data)
       local chrome = getChrome()
-      if chrome and label then drawReadoutTab(chrome, label) end
+      local fallback = readoutLabel(selected.id, def, data)
+      if chrome and fallback then drawReadoutTab(chrome, fallback) end
       return unpack(result, 1, result.n)
-    end, 150)
+    end, math.huge)
+
+    -- ------------------------------------------------------------------
+    -- Gen 3 UI / Gold move-panel bridge.
+    --
+    -- Gen 3 UI v1.4 replaces the presentation of the move-selection panel.
+    -- Do not guess its mod id, BattleState class, cursor field or coordinates.
+    -- Instead wrap the FINAL screen-space render.hud chain and observe the
+    -- actual text it paints.  A compatible move panel identifies itself by
+    -- drawing a TYPE row and a PP value.  The selected move is taken from the
+    -- live Gen2BattleState when possible; if the replacement UI hides/renames
+    -- that cursor state, the selected move name it visibly draws (SCRATCH,
+    -- WATER GUN, etc.) is matched back to game.data.moves.  The category is
+    -- then painted after downstream rendering, using the exact font, colour,
+    -- transform and baseline captured from that TYPE/PP row.
+    --
+    -- This block exists only in generation == 2.  The Gen 1 backend below the
+    -- early generation return is never loaded or modified by this bridge.
+
+    local function topStateOf(game)
+      local stack = game and game.stack
+      if not stack then return nil end
+      if type(stack.top) == "function" then
+        local ok, value = pcall(stack.top, stack)
+        if ok then return value end
+      end
+      if type(stack.states) == "table" then
+        return stack.states[#stack.states]
+      end
+      return nil
+    end
+
+    local function candidateMovesFromState(state)
+      if type(state) ~= "table" then return nil end
+      if type(state.playerMoves) == "function" then
+        local ok, value = pcall(state.playerMoves, state)
+        if ok and type(value) == "table" then return value end
+      end
+      local battle = state.battle
+      if type(battle) == "table" and type(battle.player) == "table"
+          and type(battle.player.moves) == "table" then
+        return battle.player.moves
+      end
+      for _, key in ipairs({ "model", "battleState", "battleModel" }) do
+        local holder = state[key]
+        local b = type(holder) == "table" and (holder.battle or holder) or nil
+        if type(b) == "table" and type(b.player) == "table"
+            and type(b.player.moves) == "table" then
+          return b.player.moves
+        end
+      end
+      return nil
+    end
+
+    local function selectedFromState(state, data)
+      if type(state) ~= "table" then return nil, nil end
+      local moves = candidateMovesFromState(state)
+      -- Some replacement screens keep the chosen move itself rather than an
+      -- index.  Accept only a table carrying an id that resolves in this Gold
+      -- move table; arbitrary menu item tables are ignored.
+      for _, key in ipairs({ "selectedMove", "currentMove", "move" }) do
+        local row = state[key]
+        if type(row) == "table" and row.id and data and data.moves
+            and data.moves[row.id] then
+          return row, data.moves[row.id]
+        elseif type(row) == "string" and data and data.moves and data.moves[row] then
+          return { id = row }, data.moves[row]
+        end
+      end
+      if type(moves) ~= "table" then return nil, nil end
+
+      local holders = { state, state.menu, state.moveMenu, state.movesMenu,
+                        state.cursorState, state.selection }
+      local keys = { "moveIndex", "selectedMoveIndex", "moveCursor",
+                     "cursor", "index", "selected" }
+      for _, holder in ipairs(holders) do
+        if type(holder) == "table" then
+          for _, key in ipairs(keys) do
+            local raw = tonumber(holder[key])
+            if raw then
+              -- Native Gold is 1-based.  A replacement UI is allowed to use a
+              -- 0-based cursor, so try both without ever leaving the move list.
+              for _, idx in ipairs({ raw, raw + 1 }) do
+                local row = moves[idx]
+                if type(row) == "table" and row.id and data and data.moves
+                    and data.moves[row.id] then
+                  return row, data.moves[row.id]
+                end
+              end
+            end
+          end
+        end
+      end
+      return nil, nil
+    end
+
+    local function normalizedMoveText(value)
+      local text = tostring(value or ""):upper()
+      text = text:gsub("[%c]", " "):gsub("[_%-]+", " ")
+      text = text:gsub("[^A-Z0-9 '%.]", " ")
+      text = text:gsub("%s+", " "):match("^%s*(.-)%s*$") or ""
+      return text
+    end
+
+    local function moveNameIndex(data)
+      local byName = {}
+      for id, def in pairs((data and data.moves) or {}) do
+        if type(def) == "table" then
+          local names = { def.name, id }
+          for _, value in ipairs(names) do
+            local key = normalizedMoveText(value)
+            if key ~= "" and byName[key] == nil then
+              byName[key] = { id = id, def = def }
+            end
+          end
+        end
+      end
+      return byName
+    end
+
+    local function cloneTransform(G)
+      if type(G.getTransform) ~= "function" then return nil end
+      local ok, transform = pcall(G.getTransform)
+      if not ok or not transform then return nil end
+      if type(transform.clone) == "function" then
+        local okClone, clone = pcall(transform.clone, transform)
+        if okClone then return clone end
+      end
+      return transform
+    end
+
+    local function callFontWidth(call, text)
+      local font = call and call.font
+      if font and type(font.getWidth) == "function" then
+        local ok, width = pcall(font.getWidth, font, tostring(text or ""))
+        if ok and type(width) == "number" then return width end
+      end
+      return #tostring(text or "") * 6
+    end
+
+    local function visualCallStart(call)
+      if not call or type(call.x) ~= "number" then return nil end
+      if call.kind ~= "printf" or type(call.limit) ~= "number" then return call.x end
+      local width = callFontWidth(call, call.text)
+      if call.align == "right" then return call.x + call.limit - width end
+      if call.align == "center" then return call.x + (call.limit - width) / 2 end
+      return call.x
+    end
+
+    local function sameBaseline(a, b)
+      return type(a) == "number" and type(b) == "number" and math.abs(a - b) <= 3
+    end
+
+    local function colorLuma(color)
+      if type(color) ~= "table" then return math.huge end
+      local r = tonumber(color[1]) or 1
+      local g = tonumber(color[2]) or 1
+      local b = tonumber(color[3]) or 1
+      return ((0.2126 * r) + (0.7152 * g) + (0.0722 * b))
+    end
+
+    local function callStyleScore(call)
+      if type(call) ~= "table" then return math.huge end
+      local a = (type(call.color) == "table" and tonumber(call.color[4])) or 1
+      local x = type(call.startX) == "number" and math.abs(call.startX - math.floor(call.startX + 0.5)) or 1
+      local y = type(call.y) == "number" and math.abs(call.y - math.floor(call.y + 0.5)) or 1
+      -- Lower is better: prefer the darkest fully-opaque observed draw that
+      -- already sits on whole-pixel coordinates.  This avoids inheriting a
+      -- pale helper/shadow pass from the replacement footer.
+      return colorLuma(call.color) + ((1 - math.max(0, math.min(a, 1))) * 4) + (x * 0.5) + (y * 0.5)
+    end
+
+    local function captureHudCall(G, kind, text, x, y, limit, align)
+      local call = {
+        kind = kind, text = tostring(text or ""), x = x, y = y,
+        limit = limit, align = align,
+        font = type(G.getFont) == "function" and G.getFont() or nil,
+        transform = cloneTransform(G),
+      }
+      if type(G.getColor) == "function" then
+        local r, g, b, a = G.getColor()
+        call.color = { r, g, b, a }
+      end
+      call.startX = visualCallStart(call)
+      call.width = callFontWidth(call, call.text)
+      call.upper = normalizedUiText(call.text) or ""
+      return call
+    end
+
+    local function findSelectedFromHud(calls, data, typeY)
+      local index = moveNameIndex(data)
+      local best, bestScore
+      for _, call in ipairs(calls) do
+        local hit = index[normalizedMoveText(call.text)]
+        if hit and type(call.startX) == "number" and type(call.y) == "number" then
+          -- The selected-move detail is the leftmost move-name rendering in
+          -- the footer; the four-choice list sits to its right.  Prefer that
+          -- leftmost occurrence, with closeness to the TYPE row as tie-break.
+          local vertical = type(typeY) == "number" and math.abs(typeY - call.y) or 0
+          local score = call.startX * 1000 + vertical
+          if bestScore == nil or score < bestScore then
+            bestScore = score
+            best = hit
+          end
+        end
+      end
+      if best then return { id = best.id }, best.def end
+      return nil, nil
+    end
+
+    local function rowGeometry(calls, def)
+      local typeCall
+      for _, call in ipairs(calls) do
+        if call.upper:find("TYPE", 1, true) then
+          typeCall = call
+          break
+        end
+      end
+      if not typeCall then return nil end
+      local rowY = typeCall.y
+      local ppCall
+      for _, call in ipairs(calls) do
+        if sameBaseline(rowY, call.y) and call.upper:find("PP", 1, true) then
+          ppCall = call
+          break
+        end
+      end
+      if not ppCall then return nil end
+
+      -- Already supported natively by a future Gen 3 UI?  Do not duplicate it.
+      for _, call in ipairs(calls) do
+        if sameBaseline(rowY, call.y) and
+            (call.upper:find("PHYSICAL", 1, true)
+             or call.upper:find("SPECIAL", 1, true)
+             or call.upper:find("STATUS", 1, true)) then
+          return { already = true }
+        end
+      end
+
+      local typeToken = normalizedMoveText(def and def.type):gsub(" ", "")
+      local typeEnd
+      -- The category must visually belong to TYPE, not PP.  Keep the exact
+      -- font/transform/color of the rendered type value (WATER/NORMAL/etc.)
+      -- and fall back to the TYPE label when a replacement UI emits the row in
+      -- a shape where the value cannot be isolated.  Gen 3 UI v1.4.0 appears
+      -- to render footer text in more than one pass; some captures therefore
+      -- see both a washed-out helper pass and the final darker visible pass.
+      -- Prefer the darkest matching type-token draw on the baseline so our
+      -- inserted PHYSICAL/SPECIAL/STATUS inherits the same visible style the
+      -- player actually sees, not an earlier pale pass.
+      local typeStyle = typeCall
+      local bestStyle, bestEnd, bestScore
+      for _, call in ipairs(calls) do
+        if sameBaseline(rowY, call.y) then
+          local compact = normalizedMoveText(call.text):gsub(" ", "")
+          local pos = typeToken ~= "" and compact:find(typeToken, 1, true) or nil
+          if pos then
+            local rawUpper = tostring(call.text):upper()
+            local rawPos = rawUpper:find(typeToken, 1, true)
+            local candidateEnd
+            if rawPos then
+              candidateEnd = call.startX + callFontWidth(call,
+                tostring(call.text):sub(1, rawPos + #typeToken - 1))
+            else
+              candidateEnd = call.startX + call.width
+            end
+            local score = callStyleScore(call)
+            if bestScore == nil or score < bestScore then
+              bestScore = score
+              bestStyle = call
+              bestEnd = candidateEnd
+            end
+          end
+        end
+      end
+      if bestStyle then
+        typeStyle = bestStyle
+        typeEnd = bestEnd
+      end
+      if not typeEnd then
+        typeEnd = typeCall.startX + typeCall.width
+      end
+
+      local ppX = ppCall.startX
+      local ppPos = tostring(ppCall.text):upper():find("PP", 1, true)
+      if ppPos and ppPos > 1 then
+        ppX = ppCall.startX + callFontWidth(ppCall,
+          tostring(ppCall.text):sub(1, ppPos - 1))
+      end
+      if type(typeEnd) ~= "number" or type(ppX) ~= "number" or ppX <= typeEnd then
+        return nil
+      end
+      return { y = rowY, typeEnd = typeEnd, ppX = ppX, style = typeStyle }
+    end
+
+    local function drawObservedCategory(G, originalPrint, geom, label)
+      if not (geom and label and geom.style) or geom.already then return false end
+      local style = geom.style
+      local space = callFontWidth(style, " ")
+      local labelWidth = callFontWidth(style, label)
+      local left = geom.typeEnd + math.max(2, space)
+      local right = geom.ppX - math.max(2, space)
+      if right - left < labelWidth then return false end
+      -- Important for pixel-font parity with the Gen 3 UI footer: drawing on a
+      -- fractional X softens the glyphs and makes them look washed out even if
+      -- the colour is correct.  Snap the injected category to the nearest pixel
+      -- in the same coordinate space the observed footer used.
+      local x = math.floor(left + (right - left - labelWidth) / 2 + 0.5)
+      local y = type(geom.y) == "number" and math.floor(geom.y + 0.5) or geom.y
+
+      local pushed = false
+      if type(G.push) == "function" then
+        local ok = pcall(G.push, "all")
+        pushed = ok
+      end
+      local oldFont = type(G.getFont) == "function" and G.getFont() or nil
+      local oldColor
+      if type(G.getColor) == "function" then oldColor = { G.getColor() } end
+      if style.transform and type(G.replaceTransform) == "function" then
+        pcall(G.replaceTransform, style.transform)
+      end
+      if style.font and type(G.setFont) == "function" then pcall(G.setFont, style.font) end
+      if style.color and type(G.setColor) == "function" then
+        pcall(G.setColor, style.color[1], style.color[2], style.color[3], style.color[4] or 1)
+      end
+      -- Simulate a slightly bolder pixel-font weight for the injected
+      -- PHYSICAL/SPECIAL/STATUS footer label. The replacement UI font does not
+      -- expose a native bold face here, so draw a second identical pass one
+      -- pixel to the right. Keep the primary pass at the original centered X so
+      -- spacing/alignment remain effectively unchanged.
+      -- Match Gen 3 UI's heavier footer weight without switching fonts:
+      -- render the same glyphs twice on whole-pixel coordinates.  A one-pixel
+      -- horizontal overdraw thickens the strokes while keeping the exact font,
+      -- colour and transform we captured from TYPE/WATER/NORMAL.
+      originalPrint(label, x, y)
+      originalPrint(label, x + 1, y)
+      originalPrint(label, x + 1, y)
+      if pushed and type(G.pop) == "function" then
+        pcall(G.pop)
+      else
+        if oldFont and type(G.setFont) == "function" then pcall(G.setFont, oldFont) end
+        if oldColor and type(G.setColor) == "function" then
+          pcall(G.setColor, oldColor[1], oldColor[2], oldColor[3], oldColor[4] or 1)
+        end
+      end
+      return true
+    end
+
+    local renderHudOk = pcall(function()
+      hooks:wrap("render.hud", function(next, game, viewport)
+        if mod.options:get("move_category_readout") == false then
+          return next(game, viewport)
+        end
+        local G = rawget(_G, "love") and love.graphics or nil
+        if not (G and type(G.print) == "function") then
+          return next(game, viewport)
+        end
+
+        local originalPrint = G.print
+        local originalPrintf = type(G.printf) == "function" and G.printf or nil
+        local calls = {}
+        G.print = function(text, x, y, ...)
+          calls[#calls + 1] = captureHudCall(G, "print", text, x, y)
+          return originalPrint(text, x, y, ...)
+        end
+        if originalPrintf then
+          G.printf = function(text, x, y, limit, align, ...)
+            calls[#calls + 1] = captureHudCall(G, "printf", text, x, y, limit, align)
+            return originalPrintf(text, x, y, limit, align, ...)
+          end
+        end
+
+        local called = pack(pcall(next, game, viewport))
+        G.print = originalPrint
+        if originalPrintf then G.printf = originalPrintf end
+        if not called[1] then error(called[2], 0) end
+
+        local typeY
+        for _, call in ipairs(calls) do
+          if call.upper:find("TYPE", 1, true) then typeY = call.y break end
+        end
+        if typeY ~= nil then
+          local data = game and game.data
+          local state = topStateOf(game)
+          local selected, def = selectedFromState(state, data)
+          if not def then selected, def = findSelectedFromHud(calls, data, typeY) end
+          local geom = def and rowGeometry(calls, def) or nil
+          local label = def and categoryOnlyLabel(selected and selected.id, def, data) or nil
+          if geom and geom.already then
+            gen3UiRuntimeDetected = true
+            gen3UiRuntimeInline = true
+            gen3UiRenderHudSource = "observed-native-category-row"
+          elseif geom and label and drawObservedCategory(G, originalPrint, geom, label) then
+            gen3UiRuntimeDetected = true
+            gen3UiRuntimeInline = true
+            gen3UiRenderHudDrawn = true
+            gen3UiRenderHudSource = "observed-type-pp-row"
+          end
+        end
+
+        local result = { n = called.n - 1 }
+        for i = 2, called.n do result[i - 1] = called[i] end
+        return unpack(result, 1, result.n)
+      end, math.huge)
+    end)
+    gen3UiRenderHudInstalled = renderHudOk
     readoutHookInstalled = true
   elseif mod.log and type(mod.log.warn) == "function" then
     mod.log:warn("Gold Move Category Readout unavailable: public battle.overlay hook API is missing")
@@ -1326,8 +2038,9 @@ local function runGoldBackend(mod)
   local function getDiagnostics()
     local standaloneMoveCategory = type(mod.find) == "function"
       and mod.find("move_category") ~= nil or false
+    local gen3Ui = gen3UiHandleForDiagnostics()
     return {
-      modVersion = tostring(mod.version or "2.6.0"),
+      modVersion = tostring(mod.version or "2.6.2"),
       apiVersion = 1,
       generation = "gold",
       requested = getGameplayConfig(),
@@ -1345,7 +2058,7 @@ local function runGoldBackend(mod)
           counterMirrorCoat = "covered-via-damage-kind",
           aiExpectedDamage = "covered",
           smartAiHistory = "covered",
-          readout = readoutHookInstalled and "covered-public-overlay" or "hook-unavailable",
+          readout = readoutHookInstalled and "covered-public-overlay+gen3-inline" or "hook-unavailable",
         },
         canonicalMovesSeen = canonicalCount,
         canonicalMovesExpected = 251,
@@ -1353,6 +2066,9 @@ local function runGoldBackend(mod)
         registryConflictsObserved = registryConflicts,
         identitySkips = identitySkips,
         readoutHookInstalled = readoutHookInstalled,
+        gen3RenderHudInstalled = gen3UiRenderHudInstalled,
+        gen3RenderHudDrawn = gen3UiRenderHudDrawn,
+        gen3RenderHudSource = gen3UiRenderHudSource,
       },
       link = {
         affectsLink = true,
@@ -1362,6 +2078,15 @@ local function runGoldBackend(mod)
       integrations = {
         crystal251 = { detected = type(mod.find) == "function" and mod.find("CRYSTAL_251") ~= nil or false, applicable = false },
         modernUi = { detected = type(mod.find) == "function" and mod.find("gen1_modern_ui") ~= nil or false, applicable = false },
+        gen3Ui = {
+          detected = gen3UiRuntimeDetected or gen3Ui ~= nil,
+          runtimeDetected = gen3UiRuntimeDetected,
+          handleDetected = gen3Ui ~= nil,
+          version = gen3Ui and tostring(gen3Ui.version or "unknown") or nil,
+          applicable = true,
+          presentation = gen3UiRenderHudDrawn and "gen3-render-hud-type-row" or (gen3UiRuntimeInline and "inline-type-row" or "native-gold-tab"),
+          activation = gen3UiRenderHudSource or "automatic-render-capability",
+        },
         standaloneMoveCategory = { detected = standaloneMoveCategory, integratedReadoutEnabled = mod.options:get("move_category_readout") ~= false },
       },
     }
@@ -1375,7 +2100,7 @@ local function runGoldBackend(mod)
 
   mod.exports.specialStatSplit = {
     apiVersion = 1,
-    modVersion = tostring(mod.version or "2.6.0"),
+    modVersion = tostring(mod.version or "2.6.2"),
     specialSplitActive = mod.exports.specialSplitActive,
     moveCategorySplitActive = mod.exports.moveCategorySplitActive,
     moveCategoryReadoutEnabled = mod.exports.moveCategoryReadoutEnabled,
@@ -1388,7 +2113,7 @@ local function runGoldBackend(mod)
   }
   mod.exports.specialStatSplitV2 = {
     apiVersion = 2,
-    modVersion = tostring(mod.version or "2.6.0"),
+    modVersion = tostring(mod.version or "2.6.2"),
     generation = function() return "gold" end,
     getRequestedGameplayConfig = getGameplayConfig,
     getEffectiveGameplayConfig = getEffectiveGameplayConfig,
@@ -1589,6 +2314,371 @@ return function(mod)
 
     mod.exports.moveCategoryReadoutEnabled = function()
       return mod.options:get("move_category_readout") ~= false
+    end
+
+    -- Gen 3 Inspired UI compatibility for GEN 1.
+    --
+    -- Keep the proven native Gen 1 TYPE/ -> PHYS/SPEC Font.draw shim above
+    -- completely intact.  A replacement Gen 3 UI does not use that tiny
+    -- cartridge-style TYPE/ token; instead it paints a wide screen-space
+    -- footer such as "TYPE  WATER ... PP 25 / 25" from render.hud.  Observe
+    -- that real footer after all downstream HUD renderers have run and inject
+    -- PHYSICAL / SPECIAL / STATUS into its actual free space.  This is the
+    -- same live-proven presentation strategy as the Gold TEST K path, but is
+    -- implemented independently inside the Gen 1 backend so Gold behavior is
+    -- not changed by this compatibility extension.
+    local gen1Gen3HudObserverInstalled = false
+
+    local function gen1FullCategoryLabel(id, def)
+      if type(def) ~= "table" then return nil end
+      local index = tonumber(def.index)
+      local audited = index and GEN4_MOVE_CATEGORY_BY_INDEX[index] or nil
+      if index and index <= 165 and isCanonicalGen1Move(id, def, index)
+          and audited == "status" then
+        return "STATUS"
+      end
+      if def.category == "status" or (tonumber(def.power) or 0) == 0 then
+        return "STATUS"
+      end
+      local category = def.category
+      if category ~= "physical" and category ~= "special" then
+        category = def.type and TypeChart.category(def.type) or nil
+      end
+      if category == "special" then return "SPECIAL" end
+      if category == "physical" then return "PHYSICAL" end
+      return nil
+    end
+
+    local function gen1UiText(value)
+      if type(value) ~= "string" then return "" end
+      return value:upper():gsub("[%c]", " ")
+    end
+
+    local function gen1MoveText(value)
+      local out = tostring(value or ""):upper()
+      out = out:gsub("[%c]", " "):gsub("[_%-]+", " ")
+      out = out:gsub("[^A-Z0-9 '%.]", " ")
+      out = out:gsub("%s+", " "):match("^%s*(.-)%s*$") or ""
+      return out
+    end
+
+    local function gen1TypeToken(value)
+      local out = gen1MoveText(value)
+      out = out:gsub("%s+TYPE$", "")
+      return out:gsub(" ", "")
+    end
+
+    local function gen1CloneTransform(G)
+      if type(G.getTransform) ~= "function" then return nil end
+      local ok, transform = pcall(G.getTransform)
+      if not ok or not transform then return nil end
+      if type(transform.clone) == "function" then
+        local okClone, clone = pcall(transform.clone, transform)
+        if okClone then return clone end
+      end
+      return transform
+    end
+
+    local function gen1CallWidth(call, value)
+      local font = call and call.font
+      if font and type(font.getWidth) == "function" then
+        local ok, width = pcall(font.getWidth, font, tostring(value or ""))
+        if ok and type(width) == "number" then return width end
+      end
+      return #tostring(value or "") * 6
+    end
+
+    local function gen1CallStart(call)
+      if not call or type(call.x) ~= "number" then return nil end
+      if call.kind ~= "printf" or type(call.limit) ~= "number" then
+        return call.x
+      end
+      local width = gen1CallWidth(call, call.text)
+      if call.align == "right" then return call.x + call.limit - width end
+      if call.align == "center" then return call.x + (call.limit - width) / 2 end
+      return call.x
+    end
+
+    local function gen1SameBaseline(a, b)
+      return type(a) == "number" and type(b) == "number"
+        and math.abs(a - b) <= 3
+    end
+
+    local function gen1ColorLuma(color)
+      if type(color) ~= "table" then return math.huge end
+      local r = tonumber(color[1]) or 1
+      local g = tonumber(color[2]) or 1
+      local b = tonumber(color[3]) or 1
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    end
+
+    local function gen1StyleScore(call)
+      if type(call) ~= "table" then return math.huge end
+      local a = type(call.color) == "table" and tonumber(call.color[4]) or 1
+      a = math.max(0, math.min(a or 1, 1))
+      local fx = type(call.startX) == "number"
+        and math.abs(call.startX - math.floor(call.startX + 0.5)) or 1
+      local fy = type(call.y) == "number"
+        and math.abs(call.y - math.floor(call.y + 0.5)) or 1
+      return gen1ColorLuma(call.color) + ((1 - a) * 4) + fx * 0.5 + fy * 0.5
+    end
+
+    local function gen1CaptureHudCall(G, kind, value, x, y, limit, align)
+      local call = {
+        kind = kind, text = tostring(value or ""), x = x, y = y,
+        limit = limit, align = align,
+        font = type(G.getFont) == "function" and G.getFont() or nil,
+        transform = gen1CloneTransform(G),
+      }
+      if type(G.getColor) == "function" then
+        local r, g, b, a = G.getColor()
+        call.color = { r, g, b, a }
+      end
+      call.startX = gen1CallStart(call)
+      call.width = gen1CallWidth(call, call.text)
+      call.upper = gen1UiText(call.text)
+      return call
+    end
+
+    local function gen1MoveNameIndex(data)
+      local byName = {}
+      for id, def in pairs((data and data.moves) or {}) do
+        if type(def) == "table" then
+          -- Do not use ipairs({def.name, id}) here: many Gen 1 move records
+          -- rely on the registry id and have no explicit name, and ipairs
+          -- stops immediately when slot 1 is nil.
+          for _, value in ipairs({ id, def.name or id }) do
+            local key = gen1MoveText(value)
+            if key ~= "" and byName[key] == nil then
+              byName[key] = { id = id, def = def }
+            end
+          end
+        end
+      end
+      return byName
+    end
+
+    local function gen1SelectedFromBattle(battle, data)
+      if type(battle) ~= "table" then return nil, nil end
+      local moves = battle.player and battle.player.curMoves
+      local index = tonumber(battle.moveIndex)
+      local selected = type(moves) == "table" and index and moves[index] or nil
+      if type(selected) == "table" and selected.id and data and data.moves
+          and data.moves[selected.id] then
+        return selected, data.moves[selected.id]
+      end
+      return nil, nil
+    end
+
+    local function gen1SelectedFromHud(calls, data, typeY)
+      local index = gen1MoveNameIndex(data)
+      local best, bestScore
+      for _, call in ipairs(calls) do
+        local hit = index[gen1MoveText(call.text)]
+        if hit and type(call.startX) == "number" and type(call.y) == "number" then
+          local vertical = type(typeY) == "number" and math.abs(typeY - call.y) or 0
+          local score = call.startX * 1000 + vertical
+          if bestScore == nil or score < bestScore then
+            bestScore = score
+            best = hit
+          end
+        end
+      end
+      if best then return { id = best.id }, best.def end
+      return nil, nil
+    end
+
+    local function gen1RowGeometry(calls, def)
+      local typeCall
+      for _, call in ipairs(calls) do
+        if call.upper:find("TYPE", 1, true) then
+          typeCall = call
+          break
+        end
+      end
+      if not typeCall then return nil end
+      local rowY = typeCall.y
+      local ppCall
+      for _, call in ipairs(calls) do
+        if gen1SameBaseline(rowY, call.y) and call.upper:find("PP", 1, true) then
+          ppCall = call
+          break
+        end
+      end
+      if not ppCall then return nil end
+
+      for _, call in ipairs(calls) do
+        if gen1SameBaseline(rowY, call.y) and
+            (call.upper:find("PHYSICAL", 1, true)
+             or call.upper:find("SPECIAL", 1, true)
+             or call.upper:find("STATUS", 1, true)) then
+          return { already = true }
+        end
+      end
+
+      local token = gen1TypeToken(def and def.type)
+      local typeStyle = typeCall
+      local typeEnd
+      local bestScore
+      for _, call in ipairs(calls) do
+        if gen1SameBaseline(rowY, call.y) then
+          local compact = gen1MoveText(call.text):gsub(" ", "")
+          local pos = token ~= "" and compact:find(token, 1, true) or nil
+          if pos then
+            local rawUpper = tostring(call.text):upper():gsub("_TYPE", "")
+            local rawPos = rawUpper:find(token, 1, true)
+            local candidateEnd
+            if rawPos then
+              candidateEnd = call.startX + gen1CallWidth(call,
+                tostring(call.text):sub(1, rawPos + #token - 1))
+            else
+              candidateEnd = call.startX + call.width
+            end
+            local score = gen1StyleScore(call)
+            if bestScore == nil or score < bestScore then
+              bestScore = score
+              typeStyle = call
+              typeEnd = candidateEnd
+            end
+          end
+        end
+      end
+
+      -- Fallback for a replacement UI whose display spelling is detached from
+      -- the engine type id: use the first same-row text chunk between TYPE and
+      -- PP as the visible type token/style.
+      local ppX = ppCall.startX
+      local ppPos = tostring(ppCall.text):upper():find("PP", 1, true)
+      if ppPos and ppPos > 1 then
+        ppX = ppCall.startX + gen1CallWidth(ppCall,
+          tostring(ppCall.text):sub(1, ppPos - 1))
+      end
+      if not typeEnd then
+        local typeRight = (typeCall.startX or 0) + (typeCall.width or 0)
+        local fallback, fallbackScore
+        for _, call in ipairs(calls) do
+          if call ~= typeCall and call ~= ppCall and gen1SameBaseline(rowY, call.y)
+              and type(call.startX) == "number" and call.startX >= typeRight
+              and call.startX < ppX
+              and not call.upper:find("TYPE", 1, true)
+              and not call.upper:find("PP", 1, true) then
+            local score = gen1StyleScore(call)
+            if fallbackScore == nil or score < fallbackScore then
+              fallbackScore = score
+              fallback = call
+            end
+          end
+        end
+        if fallback then
+          typeStyle = fallback
+          typeEnd = fallback.startX + fallback.width
+        else
+          typeEnd = typeRight
+        end
+      end
+
+      if type(typeEnd) ~= "number" or type(ppX) ~= "number" or ppX <= typeEnd then
+        return nil
+      end
+      return { y = rowY, typeEnd = typeEnd, ppX = ppX, style = typeStyle }
+    end
+
+    local function gen1DrawObservedCategory(G, originalPrint, geom, label)
+      if not (geom and geom.style and label) or geom.already then return false end
+      local style = geom.style
+      local space = gen1CallWidth(style, " ")
+      local labelWidth = gen1CallWidth(style, label)
+      local left = geom.typeEnd + math.max(2, space)
+      local right = geom.ppX - math.max(2, space)
+      if right - left < labelWidth then return false end
+      local x = math.floor(left + (right - left - labelWidth) / 2 + 0.5)
+      local y = type(geom.y) == "number" and math.floor(geom.y + 0.5) or geom.y
+
+      local pushed = false
+      if type(G.push) == "function" then pushed = pcall(G.push, "all") end
+      local oldFont = type(G.getFont) == "function" and G.getFont() or nil
+      local oldColor
+      if type(G.getColor) == "function" then oldColor = { G.getColor() } end
+      if style.transform and type(G.replaceTransform) == "function" then
+        pcall(G.replaceTransform, style.transform)
+      end
+      if style.font and type(G.setFont) == "function" then pcall(G.setFont, style.font) end
+      if style.color and type(G.setColor) == "function" then
+        pcall(G.setColor, style.color[1], style.color[2], style.color[3], style.color[4] or 1)
+      end
+      -- Same visually confirmed weight as the Gold TEST K path.
+      originalPrint(label, x, y)
+      originalPrint(label, x + 1, y)
+      originalPrint(label, x + 1, y)
+      if pushed and type(G.pop) == "function" then
+        pcall(G.pop)
+      else
+        if oldFont and type(G.setFont) == "function" then pcall(G.setFont, oldFont) end
+        if oldColor and type(G.setColor) == "function" then
+          pcall(G.setColor, oldColor[1], oldColor[2], oldColor[3], oldColor[4] or 1)
+        end
+      end
+      return true
+    end
+
+    if mod.hooks and type(mod.hooks.wrap) == "function" then
+      local ok = pcall(function()
+        mod.hooks:wrap("render.hud", function(next, game, viewport)
+          if mod.options:get("move_category_readout") == false then
+            return next(game, viewport)
+          end
+          local G = rawget(_G, "love") and love.graphics or nil
+          if not (G and type(G.print) == "function") then
+            return next(game, viewport)
+          end
+
+          local originalPrint = G.print
+          local originalPrintf = type(G.printf) == "function" and G.printf or nil
+          local calls = {}
+          G.print = function(value, x, y, ...)
+            calls[#calls + 1] = gen1CaptureHudCall(G, "print", value, x, y)
+            return originalPrint(value, x, y, ...)
+          end
+          if originalPrintf then
+            G.printf = function(value, x, y, limit, align, ...)
+              calls[#calls + 1] = gen1CaptureHudCall(G, "printf", value, x, y, limit, align)
+              return originalPrintf(value, x, y, limit, align, ...)
+            end
+          end
+
+          local called = pack(pcall(next, game, viewport))
+          G.print = originalPrint
+          if originalPrintf then G.printf = originalPrintf end
+          if not called[1] then error(called[2], 0) end
+
+          local typeY
+          for _, call in ipairs(calls) do
+            if call.upper:find("TYPE", 1, true) then
+              typeY = call.y
+              break
+            end
+          end
+          if typeY ~= nil then
+            local data = game and game.data
+            local selected, def = gen1SelectedFromBattle(readout.currentBattle, data)
+            if not def then selected, def = gen1SelectedFromHud(calls, data, typeY) end
+            local geom = def and gen1RowGeometry(calls, def) or nil
+            local label = def and gen1FullCategoryLabel(selected and selected.id, def) or nil
+            if geom and label and not geom.already then
+              gen1DrawObservedCategory(G, originalPrint, geom, label)
+            end
+          end
+
+          local result = { n = called.n - 1 }
+          for i = 2, called.n do result[i - 1] = called[i] end
+          return unpack(result, 1, result.n)
+        end, math.huge)
+      end)
+      gen1Gen3HudObserverInstalled = ok
+    end
+
+    mod.exports.gen3UiMoveCategoryGen1Installed = function()
+      return gen1Gen3HudObserverInstalled
     end
   end
 
@@ -3067,7 +4157,7 @@ return function(mod)
     local standaloneMoveCategory = type(mod.find) == "function"
       and mod.find("move_category") ~= nil or false
     return {
-      modVersion = tostring(mod.version or "2.6.0"),
+      modVersion = tostring(mod.version or "2.6.2"),
       apiVersion = 1,
       gameplay = getGameplayConfig(),
       link = {
@@ -3102,7 +4192,7 @@ return function(mod)
 
   mod.exports.specialStatSplit = {
     apiVersion = 1,
-    modVersion = tostring(mod.version or "2.6.0"),
+    modVersion = tostring(mod.version or "2.6.2"),
     specialSplitActive = mod.exports.specialSplitActive,
     moveCategorySplitActive = mod.exports.moveCategorySplitActive,
     moveCategoryReadoutEnabled = mod.exports.moveCategoryReadoutEnabled,

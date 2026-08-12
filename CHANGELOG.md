@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.6.2 — Gen 3 UI move-category compatibility for Gen 1 + Gold
+
+- Finalizes the live-tested Gen 3 Inspired UI move-selection integration on **Red / Blue / Yellow and Pokémon Gold**.
+- Detects the foreign wide `TYPE … PP` footer from what it actually renders; no manual compatibility toggle or engine-version allowlist is required.
+- Inserts **PHYSICAL**, **SPECIAL**, or **STATUS** directly between the elemental type and PP counter while leaving Gen 3 UI's move list and footer ownership intact.
+- Uses the observed footer font, colour and transform, snaps the injected text to whole pixels, and applies a 1-pixel two-pass overdraw for the confirmed matching visual weight.
+- Gen 1 keeps its established native `TYPE/` -> `PHYS/` / `SPEC/` readout when Gen 3 UI is absent.
+- Gold keeps the already-live-tested native top-border readout when Gen 3 UI is absent.
+- Gen 1 and Gold battle mechanics are unchanged from the accepted 2.6.2 test line; this release promotes the confirmed UI compatibility implementation without further gameplay changes.
+- User live verification: **PASS** for Gold + Gen 3 UI and **PASS** for Gen 1 + Gen 3 UI.
+
+## 2.6.1 — Gen 3 UI / Gold move-category integration
+
+- Adds explicit optional compatibility with `gen3_battle_ui`, including the Gen 3 Inspired UI Overhaul v1.4.0 Gold layout.
+- When Gen 3 UI is active on Gold, the native top-border category tab is suppressed after successful integration and the selected move is shown as **PHYSICAL**, **SPECIAL**, or **STATUS** directly in the existing `TYPE … PP` information row.
+- The integration is capability-based rather than release-number-gated: it observes the foreign renderer's real TYPE/type/PP text positions and uses its active font, colour, transform and canvas instead of hardcoding screenshot coordinates.
+- If the foreign renderer no longer exposes a recognizable TYPE/PP row, all temporary LOVE text hooks are restored and the proven native Gold category tab is used as a fail-safe.
+- Adds headless coverage for separate-field and one-string TYPE/PP rendering, PHYSICAL/SPECIAL/STATUS routing, nonstandard-damage trinary presentation, duplicate suppression, fallback behavior, hook ordering and error-safe renderer restoration.
+- No battle-math, save, Gen 1, Crystal 251, link-fingerprint or native Gold stat behavior changes.
+
 ## 2.6.0 — Gold / Gen 2 support
 
 - Adds an early generation boundary so Gold never initializes the Gen 1 stat/damage/EXP/item-effect/save/UI compatibility backend.

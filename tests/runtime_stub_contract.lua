@@ -255,7 +255,7 @@ local optionReadout = READOUT_MODE ~= 'off'
 local registeredModernUiAdapter
 local specialExports = {}
 local specialHandle = {
-  id = 'special_stat_split', version = '2.6.0', exports = specialExports,
+  id = 'special_stat_split', version = '2.6.2', exports = specialExports,
 }
 local realModernUiMod
 local modernUiStub
@@ -321,14 +321,24 @@ function linkFieldsRegistry:register(id, record)
   registeredLinkFields[id] = deepcopy(record)
 end
 local specialHookWrappers = {}
+local specialHookWrapperLists = {}
 local specialHooks = {}
 function specialHooks:wrap(name, fn, priority)
-  specialHookWrappers[name] = { fn = fn, priority = priority }
-  return function() specialHookWrappers[name] = nil end
+  local row = { fn = fn, priority = priority }
+  specialHookWrappers[name] = row
+  specialHookWrapperLists[name] = specialHookWrapperLists[name] or {}
+  table.insert(specialHookWrapperLists[name], row)
+  return function()
+    if specialHookWrappers[name] == row then specialHookWrappers[name] = nil end
+    local list = specialHookWrapperLists[name] or {}
+    for i = #list, 1, -1 do
+      if list[i] == row then table.remove(list, i) break end
+    end
+  end
 end
 local mod = {
   id = 'special_stat_split',
-  version = '2.6.0',
+  version = '2.6.2',
   hooks = specialHooks,
   options = {
     define = function(_, schema) specialOptionSchema = schema end,
@@ -492,7 +502,7 @@ expect(type(mod.exports.specialStatSplit) == 'table',
   'versioned inter-mod API table exists')
 expect(mod.exports.specialStatSplit.apiVersion == 1,
   'versioned inter-mod API reports apiVersion 1')
-expect(mod.exports.specialStatSplit.modVersion == '2.6.0',
+expect(mod.exports.specialStatSplit.modVersion == '2.6.2',
   'versioned inter-mod API reports release version')
 expect(mod.exports.specialStatSplit.specialSplitActive == mod.exports.specialSplitActive
   and mod.exports.specialStatSplit.moveCategorySplitActive == mod.exports.moveCategorySplitActive
@@ -503,7 +513,7 @@ expect(mod.exports.specialStatSplit.specialSplitActive == mod.exports.specialSpl
 expect(type(mod.exports.getDiagnostics) == 'function',
   'diagnostics export exists')
 local diagnostics = mod.exports.getDiagnostics()
-expect(diagnostics.apiVersion == 1 and diagnostics.modVersion == '2.6.0',
+expect(diagnostics.apiVersion == 1 and diagnostics.modVersion == '2.6.2',
   'diagnostics identify API/build version')
 expect(diagnostics.link.configRegistered == true
   and diagnostics.link.configRevision == expectedLinkRevision,
@@ -542,6 +552,74 @@ resetFontCalls(); Font.draw('TYPE/', 8, 72)
 expect(lastFontText() == 'TYPE/',
   'integrated and standalone readouts are inactive outside battle')
 
+-- GEN 1 Gen 3 UI compatibility: observe the wide TYPE ... PP footer from
+-- render.hud and add the full PHYSICAL/SPECIAL/STATUS label using the same
+-- outer-hook strategy as the live-confirmed Gold path. The native Font.draw
+-- readout above remains a separate path and must keep working unchanged.
+local gen1Gen3Hud
+for _, row in ipairs(specialHookWrapperLists['render.hud'] or {}) do
+  if row.priority == math.huge then gen1Gen3Hud = row break end
+end
+expect(type(mod.exports.gen3UiMoveCategoryGen1Installed) == 'function'
+  and mod.exports.gen3UiMoveCategoryGen1Installed() == true,
+  'GEN 1 Gen 3 UI move-panel observer install export is active')
+expect(gen1Gen3Hud and type(gen1Gen3Hud.fn) == 'function',
+  'GEN 1 Gen 3 UI move-panel observer is registered at render.hud')
+
+local gen3Battle = {
+  phase='moveSelect', moveIndex=1,
+  player={curMoves={{id='FIRE_PUNCH'}}},
+  data={moves=moveRecords},
+}
+emitSpecial('battle.started', {battle=gen3Battle})
+hudPrintCalls = {}
+hudPrintRecords = {}
+gen1Gen3Hud.fn(function()
+  love.graphics.print('FIRE PUNCH', 410, 650)
+  love.graphics.print('TYPE', 450, 700)
+  love.graphics.print('FIRE', 510, 700)
+  love.graphics.print('PP 15 / 15', 900, 700)
+end, {data={moves=moveRecords}}, {})
+local expectedFull = optionMoveMode == 'gen4' and 'PHYSICAL' or 'SPECIAL'
+local fullCount = 0
+for _, value in ipairs(hudPrintCalls) do if value == expectedFull then fullCount = fullCount + 1 end end
+if optionReadout then
+  expect(fullCount == 3,
+    'GEN 1 Gen 3 UI footer draws the full category with TEST K bold overdraw')
+else
+  expect(fullCount == 0,
+    'GEN 1 Gen 3 UI footer respects MOVE CATEGORY READOUT OFF')
+end
+
+-- Status label through the live Gen 1 battle model.
+gen3Battle.player.curMoves[1] = {id='SWORDS_DANCE'}
+hudPrintCalls = {}
+gen1Gen3Hud.fn(function()
+  love.graphics.print('SWORDS DANCE', 410, 650)
+  love.graphics.print('TYPE', 450, 700)
+  love.graphics.print('NORMAL', 510, 700)
+  love.graphics.print('PP 20 / 20', 900, 700)
+end, {data={moves=moveRecords}}, {})
+local statusCount = 0
+for _, value in ipairs(hudPrintCalls) do if value == 'STATUS' then statusCount = statusCount + 1 end end
+expect((optionReadout and statusCount == 3) or ((not optionReadout) and statusCount == 0),
+  'GEN 1 Gen 3 UI footer resolves STATUS and respects the readout toggle')
+
+-- If a replacement screen hides the Gen 1 move cursor, infer the selected move
+-- from the visible leftmost move name rendered by Gen 3 UI.
+emitSpecial('battle.ended', {})
+hudPrintCalls = {}
+gen1Gen3Hud.fn(function()
+  love.graphics.print('FIRE PUNCH', 410, 650)
+  love.graphics.print('TYPE', 450, 700)
+  love.graphics.print('FIRE', 510, 700)
+  love.graphics.print('PP 15 / 15', 900, 700)
+end, {data={moves=moveRecords}}, {})
+local fallbackCount = 0
+for _, value in ipairs(hudPrintCalls) do if value == expectedFull then fallbackCount = fallbackCount + 1 end end
+expect((optionReadout and fallbackCount == 3) or ((not optionReadout) and fallbackCount == 0),
+  'GEN 1 Gen 3 UI visible move-name fallback resolves the category')
+
 expect(type(mod.exports.modernUiSurgicalInstalled) == 'function',
   'Modern UI surgical-install status export exists')
 if noModernUi then
@@ -554,7 +632,9 @@ elseif unsupportedModernApi then
     'unsupported Modern UI API leaves surgical override inactive')
   expect(registeredModernUiAdapter == nil,
     'unsupported Modern UI API registers no generic replacement adapter')
-  expect(specialHookWrappers['ui.state.decorate'] == nil and specialHookWrappers['render.hud'] == nil,
+  local unsupportedHud = specialHookWrappers['render.hud']
+  expect(specialHookWrappers['ui.state.decorate'] == nil
+    and (unsupportedHud == nil or unsupportedHud.priority ~= 200),
     'unsupported future Modern UI API installs no BattleWIP level-up override hooks')
 elseif realModernUiMod then
   expect(mod.exports.modernUiSurgicalInstalled() == true,
@@ -967,8 +1047,9 @@ expect(joined:find('SP%.ATK') and joined:find('SP%.DEF'), 'Level-up StatBox rend
 -- screen.render_visible. We therefore observe that exact public decoration and
 -- use our own native split draw as the per-frame truth signal.
 if noModernUi or unsupportedModernApi then
+  local noModernHud = specialHookWrappers['render.hud']
   expect(specialHookWrappers['ui.state.decorate'] == nil
-    and specialHookWrappers['render.hud'] == nil,
+    and (noModernHud == nil or noModernHud.priority ~= 200),
     'no Modern UI means no level-up correction hooks')
 else
   local decorateHook = specialHookWrappers['ui.state.decorate']
