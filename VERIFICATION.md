@@ -1,30 +1,47 @@
-# Verification report — v2.6.5
+# Verification record
 
-## Release identity
+Verified against the official Gen1Recomp `v0.1.86` tag at commit
+`3de45b671cada26835639c9bb3623201fefedfc3`.
 
-- Manifest version: `2.6.5`
-- `games = ["gen1", "gold"]`
-- `experimental = false`
-- No `game_version` release-number gate
+## Automated results
 
-## Live-approved Gen 3 UI presentation
+- `modkit lint`: PASS
+- `modkit validate --base fixture`: PASS
+- `modkit gen2check --strict --notes`: PASS (`will load`; the two dynamically
+  named, Gen 1-only native UI modules are generation-gated and intentionally
+  not followed by the static scanner)
+- Real v0.1.86 loader, Gen 1: state `loaded`, no loader errors
+- Real v0.1.86 loader, Gold: state `loaded`, no loader errors
+- Real v0.1.86 loader, Gen 1 + Crystal 251: state `loaded`, no loader errors
+- Migration functional/regression harness: **472/472 PASS**
+- Native Gen 1 readout: `TYPE/` → `PHYS/` / `SPEC/` / `STAT/` PASS,
+  including `SUPERSONIC`; additional overlay-panel rectangle count **0** PASS
+- Native Summary: `SPATK` / `SPDEF` at the original pixel-box coordinates;
+  proportional-font draw count **0** PASS
+- Native level-up StatBox: `SP.ATK` / `SP.DEF` at the original window
+  coordinates; proportional-font draw count **0** PASS
+- Gen 1 `render.hud`: replacement stat-card rectangle and text counts **0** PASS
+- Native Gold readout: `PHYSICAL` / `SPECIAL` / `STATUS` at the original
+  ten-tile border field with per-label padding; outlined-panel count **0** PASS
+- Canonical categories: **165/165 Gen 1** and **251/251 Gold/Crystal PASS**
+- Canonical split-stat reference: **251/251 species, 502/502 values PASS**
+- Battle math/stage/Light Screen/critical path oracles: PASS
 
-- **Gen 1 fixed footer column: LIVE PASS** — approved TEST F.
-- **Gold fixed footer column: LIVE PASS** — approved Gold fixed-footer test.
-- Both paths keep the first letter of `PHYSICAL / SPECIAL / STATUS` on a stable footer-local X derived from the literal `TYPE` landmark instead of variable type/PP content.
+The headless loader harness runs the production Loader, sandbox, option schema,
+registry merge, dependency sort, hook/event buses, validation, and status
+reporting. It is not a mocked manifest-only check.
 
-## Source preservation checks
+## Not exercised here
 
-- Final Gen 1 runtime section matches the live-approved TEST F implementation after normalizing only the release number.
-- Final Gold pre-Gen1 runtime section matches the live-approved Gold fixed-footer implementation after normalizing only the release number.
+No imported ROM-generated cache or graphical game executable was available in
+this environment. Therefore a live in-game visual smoke test, imported-base
+validation, link handshake between two running clients, and optional UI mod
+pixel layout remain user-test items.
 
-## Automated verification
+## Efficient manual smoke test
 
-- Full bundled `bash tools/run_all.sh`: **PASS** before packaging.
-- Final ZIP is extracted into a fresh directory and the full suite is run again before delivery.
-- Gold contract includes a regression where PP moves horizontally while the category first-letter X remains on the fixed footer column.
-- Gen 1 runtime contract includes varying TYPE values, PP positions, and PP transforms while the category first-letter X remains on the fixed footer column.
-
-## Known audit limitation
-
-The official upstream `modkit.py gen2check --notes` command remains unavailable in this workspace because an executable current upstream checkout/tool is not present. The package does not falsely claim that command as PASS; see `GEN2CHECK_STATIC_AUDIT.md`.
+Start one Gen 1 game with default settings, open Charizard's Summary, then in a
+single battle select **Fire Punch** and use **X Special** before attacking. One
+pass confirms split stats/readout, a formerly type-special move that is now
+physical, the Sp. Atk stage item, and the damage path. Save and reload once to
+confirm the vanilla save schema still round-trips.

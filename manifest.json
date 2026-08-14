@@ -1,11 +1,11 @@
 {
   "id": "special_stat_split",
   "name": "Special Stat Split",
-  "version": "2.6.5",
+  "version": "2.7.3",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
-  "category": "GAMEPLAY",
+  "category": "MECHANIC",
   "priority": 150,
   "affects_link": true,
   "permissions": [
@@ -24,7 +24,7 @@
     "gen1",
     "gold"
   ],
-  "description": "Generation II Special Attack / Special Defense, optional Generation IV+ per-move Physical/Special split, integrated Move Category readout, automatic Gen 1 + Gold Gen 3 UI inline category compatibility, versioned inter-mod API, link-safe gameplay-option fingerprinting, capability-checked Modern UI compatibility, and optional CRYSTAL 251 interoperability.",
+  "description": "Generation II Special Attack / Special Defense, optional Generation IV+ per-move Physical/Special split, integrated category readout, public-hook Gen 1 + Gold support, link-safe gameplay configuration, and compatibility fallbacks for Pokédex Plus, Modern UI, Gen 3 Battle UI and Crystal 251 content.",
   "experimental": false,
   "github": "ZyranCZ/Special-Stat-Split"
 }
